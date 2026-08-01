@@ -43,25 +43,45 @@ export function AuthPage() {
   if (auth.token && auth.user) {
     const planName = plans.find((p) => p.id === auth.user?.plan)?.name ?? '免费版';
     return (
-      <div className="max-w-md mx-auto py-16 animate-fade-in">
-        <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-slate-200 dark:border-neutral-700 shadow-sm p-8 text-center">
-          <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-emerald-600 dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-            </svg>
+      <div className="min-h-full flex flex-col animate-fade-in">
+        <header className="sticky top-0 z-40 bg-white/80 dark:bg-neutral-950/80 backdrop-blur border-b border-slate-100 dark:border-neutral-800">
+          <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+            <button onClick={() => useAppStore.getState().setCurrentStep(0)} className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-primary-100 dark:bg-neutral-700 flex items-center justify-center">
+                <svg className="w-4 h-4 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <span className="text-sm font-semibold text-slate-900 dark:text-neutral-100">CareeSeek</span>
+            </button>
+            <button
+              onClick={() => useAppStore.getState().setCurrentStep(0)}
+              className="px-3 py-1.5 rounded-lg text-sm text-slate-500 dark:text-neutral-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 transition-colors"
+            >
+              进入工作台
+            </button>
           </div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-neutral-100 mb-1">已登录</h2>
-          <p className="text-sm text-slate-500 dark:text-neutral-400 mb-1">{auth.user.email}</p>
-          <span className="inline-block text-xs text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 px-2.5 py-1 rounded-full mb-6">
-            当前套餐：{planName}
-          </span>
-          <div className="flex justify-center gap-3">
-            <Button variant="outline" size="md" onClick={() => useAppStore.getState().setCurrentStep(-4)}>
-              前往设置
-            </Button>
-            <Button variant="ghost" size="md" onClick={() => useAppStore.getState().logout()}>
-              退出登录
-            </Button>
+        </header>
+        <div className="max-w-md w-full mx-auto py-16 flex-1">
+          <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-slate-200 dark:border-neutral-700 shadow-sm p-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-emerald-600 dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-neutral-100 mb-1">已登录</h2>
+            <p className="text-sm text-slate-500 dark:text-neutral-400 mb-1">{auth.user.email}</p>
+            <span className="inline-block text-xs text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 px-2.5 py-1 rounded-full mb-6">
+              当前套餐：{planName}
+            </span>
+            <div className="flex justify-center gap-3">
+              <Button variant="outline" size="md" onClick={() => useAppStore.getState().setCurrentStep(-4)}>
+                前往设置
+              </Button>
+              <Button variant="ghost" size="md" onClick={() => useAppStore.getState().logout()}>
+                退出登录
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -69,8 +89,32 @@ export function AuthPage() {
   }
 
   return (
-    <div className="max-w-md mx-auto py-16 animate-fade-in">
-      <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-slate-200 dark:border-neutral-700 shadow-sm p-8">
+    <div className="min-h-full flex flex-col animate-fade-in">
+      {/* 独立顶部导航（无应用壳） */}
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-neutral-950/80 backdrop-blur border-b border-slate-100 dark:border-neutral-800">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+          <button
+            onClick={() => useAppStore.getState().setCurrentStep(0)}
+            className="flex items-center gap-2"
+          >
+            <div className="w-7 h-7 rounded-lg bg-primary-100 dark:bg-neutral-700 flex items-center justify-center">
+              <svg className="w-4 h-4 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <span className="text-sm font-semibold text-slate-900 dark:text-neutral-100">CareeSeek</span>
+          </button>
+          <button
+            onClick={() => useAppStore.getState().setCurrentStep(0)}
+            className="px-3 py-1.5 rounded-lg text-sm text-slate-500 dark:text-neutral-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 transition-colors"
+          >
+            返回首页
+          </button>
+        </div>
+      </header>
+
+      <div className="max-w-md w-full mx-auto py-16 flex-1">
+        <div className="bg-white dark:bg-neutral-800 rounded-2xl border border-slate-200 dark:border-neutral-700 shadow-sm p-8">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-2xl bg-primary-100 dark:bg-neutral-700 flex items-center justify-center mx-auto mb-4">
@@ -168,6 +212,7 @@ export function AuthPage() {
             登录仅用于云端 AI 服务配额与用量统计。你的简历数据始终保存在本地浏览器，不会上传到服务器。
           </p>
         </div>
+      </div>
       </div>
     </div>
   );

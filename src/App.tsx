@@ -363,10 +363,10 @@ function App() {
   const isAnalysisStep = currentStep >= 1 && currentStep <= 8;
   const isLastStep = currentStep === 8;
   const ready = stepReady[currentStep];
-  const isLanding = currentStep === 0 && auth.user === null && analysisHistory.length === 0;
+  const isBarePage = currentStep === -5 || (currentStep === 0 && auth.user === null && analysisHistory.length === 0);
 
   return (
-    <MainLayout bare={isLanding}>
+    <MainLayout bare={isBarePage}>
       {renderPage()}
 
       {/* Step footer with next button */}
