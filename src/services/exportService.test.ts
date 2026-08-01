@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { buildExportJSON, buildExportText, buildBuilderJSON } from '@/services/exportService';
+﻿import { describe, it, expect } from 'vitest';
+import { buildExportJSON, buildExportText, buildBuilderJSON, needsPageBreak } from '@/services/exportService';
 import type { FinalResume, ResumeBuilderDraft } from '@/types';
 
 const sampleResume: FinalResume = {
@@ -66,5 +66,30 @@ describe('buildBuilderJSON', () => {
     const json = buildBuilderJSON(sampleDraft);
     const parsed = JSON.parse(json);
     expect(parsed.sections.some((s: { title: string }) => s.title === '专业技能')).toBe(false);
+  });
+});
+
+describe('PDF 分页（内容超出单页自动分页）', () => {
+  it('needsPageBreak 纯逻辑：剩余空间不足时翻页', () => {
+    const pageH = 297; const margin = 14;
+    // 页顶：剩余充足，不翻页
+    expect(needsPageBreak(14, 10, pageH, margin)).toBe(false);
+    // 页底：空间不足，翻页
+    expect(needsPageBreak(290, 10, pageH, margin)).toBe(true);
+    // 正好边界：y+needed === pageHeight-margin 不翻页（> 才翻）
+    expect(needsPageBreak(283 - 10, 10, pageH, margin)).toBe(false);
+    expect(needsPageBreak(283 - 10 + 0.01, 10, pageH, margin)).toBe(true);
+  });
+
+  it('模拟多条目渲染：内容累计超过一页时产生分页', () => {
+    const pageH = 297; const margin = 14;
+    let y = margin;
+    let pages = 1;
+    const ensure = (needed: number) => {
+      if (needsPageBreak(y, needed, pageH, margin)) { pages++; y = margin; }
+    };
+    // 60 行正文，每行 11mm（模拟大量职责条目）
+    for (let i = 0; i < 60; i++) { ensure(11); y += 11; }
+    expect(pages).toBeGreaterThan(1);
   });
 });

@@ -107,7 +107,7 @@ export async function exportPDF(resume: FinalResume): Promise<void> {
   let y = 15;
 
   const ensureSpace = (needed: number) => {
-    if (y + needed > pageHeight - margin) {
+    if (needsPageBreak(y, needed, pageHeight, margin)) {
       doc.addPage();
       y = margin;
     }
@@ -223,6 +223,14 @@ const ACCENT_RGB: Record<AccentColor, [number, number, number]> = {
   violet: [91, 33, 182],
 };
 
+/**
+ * 分页判断：当前 y 位置加上所需空间后是否超出页面可用区域。
+ * 抽成纯函数便于单测。
+ */
+export function needsPageBreak(y: number, needed: number, pageHeight: number, margin: number): boolean {
+  return y + needed > pageHeight - margin;
+}
+
 export async function exportBuilderPDF(draft: ResumeBuilderDraft): Promise<void> {
   const { jsPDF } = await getJsPDF();
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -244,7 +252,7 @@ export async function exportBuilderPDF(draft: ResumeBuilderDraft): Promise<void>
   let y = margin;
 
   const ensureSpace = (needed: number) => {
-    if (y + needed > pageHeight - margin) {
+    if (needsPageBreak(y, needed, pageHeight, margin)) {
       doc.addPage();
       y = margin;
     }
@@ -277,7 +285,8 @@ export async function exportBuilderPDF(draft: ResumeBuilderDraft): Promise<void>
     const items = draft[key];
     if (items.length === 0) continue;
 
-    ensureSpace(10);
+    // 标题需要留出"标题 + 至少一条目首行"的空间，避免标题孤行在页底
+    ensureSpace(18);
     doc.setDrawColor(accent[0], accent[1], accent[2]);
     doc.setLineWidth(0.6);
     doc.line(margin, y - 1.5, pageWidth - margin, y - 1.5);
@@ -288,7 +297,8 @@ export async function exportBuilderPDF(draft: ResumeBuilderDraft): Promise<void>
       const { left, right, body } = builderEntryLines(key, item);
       if (!left && !body) continue;
 
-      ensureSpace(8);
+      // 条目头也需要足够空间（条目头 + 至少一行正文）
+      ensureSpace(body ? 14 : 8);
       if (left) {
         writeText(left, margin, sz.entry, 'bold', [30, 30, 30]);
         if (right) {

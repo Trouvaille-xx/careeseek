@@ -683,7 +683,14 @@ function ResumePreview({ draft }: { draft: ResumeBuilderDraft }) {
 
   return (
     <div className="bg-slate-100 rounded-xl p-4 sm:p-6 dark:bg-neutral-800/80">
-      <div className="bg-white shadow-lg rounded-sm aspect-[210/297] mx-auto max-w-[420px] overflow-hidden" style={{ fontFamily: 'inherit' }}>
+      <div className="flex items-center justify-between mb-2 px-1">
+        <span className="text-[11px] text-slate-400 dark:text-neutral-500">A4 预览</span>
+        <span className="text-[11px] text-slate-400 dark:text-neutral-500">内容超出 1 页时，导出 PDF 将自动分页</span>
+      </div>
+      <div
+        className="bg-white shadow-lg rounded-sm mx-auto max-w-[420px] overflow-y-auto scrollbar-thin min-h-[297px]"
+        style={{ aspectRatio: '210 / 297', fontFamily: 'inherit' }}
+      >
         {draft.template === 'sidebar' ? (
           <SidebarPreview draft={draft} accent={accent} baseSize={baseSize} titleSize={titleSize} nameSize={nameSize} visibleOrder={visibleOrder} />
         ) : draft.template === 'header' ? (
