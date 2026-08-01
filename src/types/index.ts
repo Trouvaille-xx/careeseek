@@ -36,6 +36,8 @@ export interface ResumeDiagnosis {
   overallScore: number;
   dimensionScores: DimensionScore[];
   priorityFixes: string[];
+  atsScore?: number;
+  atsIssues?: string[];
 }
 
 // ============ Matching Analysis ============
@@ -269,4 +271,37 @@ export interface InterviewSession {
   completed: boolean;
   report?: InterviewReport;
   createdAt: number;
+}
+
+// ============ Job Applications (E2) ============
+export type ApplicationStatus = 'draft' | 'applied' | 'written_test' | 'interview' | 'offer' | 'rejected' | 'withdrawn';
+
+export type ApplicationEventType = 'note' | 'written_test' | 'interview' | 'offer' | 'rejected';
+
+export interface ApplicationEvent {
+  id: string;
+  type: ApplicationEventType;
+  title: string;
+  detail?: string;
+  /** 安排日期 YYYY-MM-DD，可选 */
+  date?: string;
+  createdAt: number;
+}
+
+export interface JobApplication {
+  id: string;
+  company: string;
+  position: string;
+  status: ApplicationStatus;
+  /** 投递渠道，如 Boss直聘 / 官网 / 内推 */
+  source?: string;
+  /** JD 链接 */
+  url?: string;
+  note?: string;
+  /** 与本次分析匹配度的直觉分（0-100，手填，可选） */
+  matchScore?: number;
+  appliedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+  events: ApplicationEvent[];
 }

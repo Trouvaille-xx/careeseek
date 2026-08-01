@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { PageLoading } from '@/components/ui/Spinner';
+import { exportJSON, exportPDF } from '@/services/exportService';
 
 export function FinalResumePage() {
   const { finalResume, analysisStatus, userInput } = useAppStore();
@@ -11,6 +12,7 @@ export function FinalResumePage() {
 
   const [copied, setCopied] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // 复制全部文本
   const handleCopy = useCallback(async () => {
@@ -39,6 +41,23 @@ export function FinalResumePage() {
   const handleExport = useCallback(() => {
     setExportOpen(true);
   }, []);
+
+  const handleExportJSON = useCallback(() => {
+    if (!finalResume) return;
+    exportJSON(finalResume);
+    setExportOpen(false);
+  }, [finalResume]);
+
+  const handleExportPDF = useCallback(async () => {
+    if (!finalResume) return;
+    setExportingPdf(true);
+    try {
+      await exportPDF(finalResume);
+      setExportOpen(false);
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [finalResume]);
 
   if (status === 'loading') {
     return <PageLoading text="AI 正在生成最终简历..." />;
@@ -123,11 +142,45 @@ export function FinalResumePage() {
       <Dialog open={exportOpen} onClose={() => setExportOpen(false)} title="导出简历">
         <div className="space-y-4">
           <p className="text-sm text-slate-600">
-            导出功能即将上线，敬请期待。目前你可以使用"复制到剪贴板"功能将简历内容复制后粘贴到文档中。
+            选择导出格式，下载后可投递或备份。
           </p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={handleExportJSON}
+              className="flex flex-col items-center gap-2 rounded-xl border-2 border-slate-200 hover:border-primary-500 bg-white p-4 text-left transition-all"
+            >
+              <span className="text-sm font-medium text-slate-800">JSON 文件</span>
+              <span className="text-xs text-slate-500">结构化数据，可导入备份</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              disabled={exportingPdf}
+              className="flex flex-col items-center gap-2 rounded-xl border-2 border-slate-200 hover:border-primary-500 bg-white p-4 text-left transition-all disabled:opacity-50"
+            >
+              <span className="text-sm font-medium text-slate-800">
+                {exportingPdf ? '生成中...' : 'PDF 文件'}
+              </span>
+              <span className="text-xs text-slate-500">排版好的 A4 简历</span>
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setExportOpen(false);
+              useAppStore.getState().setCurrentStep(-3);
+            }}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 hover:border-primary-400 hover:text-primary-600 bg-white p-3 text-sm text-slate-600 transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8.688c0-.547.305-1.051.793-1.306l7.5-3.938a1.5 1.5 0 011.414 0l7.5 3.938c.488.255.793.759.793 1.306v6.626a1.5 1.5 0 01-.793 1.306l-7.5 3.938a1.5 1.5 0 01-1.414 0L3.793 16.62A1.5 1.5 0 013 15.314V8.688ZM3 8.25l9 4.5m0 0l9-4.5m-9 4.5V21" />
+            </svg>
+            去投递跟踪站
+          </button>
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => setExportOpen(false)}>
-              知道了
+              取消
             </Button>
           </div>
         </div>

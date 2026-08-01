@@ -113,6 +113,52 @@ export function DiagnosisPage() {
         </div>
       </Card>
 
+      {/* ATS 机器可读性 */}
+      {diagnosis.atsScore !== undefined && (
+        <Card padding="lg">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
+                ATS 机器可读性
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                考察简历能否被招聘系统自动解析（关键词、结构化、版式）
+              </p>
+            </div>
+            <div className={`px-4 py-2 rounded-xl border ${getScoreBg(diagnosis.atsScore)}`}>
+              <span className={`text-2xl font-bold ${getScoreColor(diagnosis.atsScore)}`}>
+                {diagnosis.atsScore}
+              </span>
+              <span className="text-xs text-slate-400 ml-1">/ 100</span>
+            </div>
+          </div>
+          <Progress
+            value={diagnosis.atsScore}
+            size="lg"
+            showLabel
+            variant={getScoreVariant(diagnosis.atsScore)}
+            className="mb-4"
+          />
+          {diagnosis.atsIssues && diagnosis.atsIssues.length > 0 && (
+            <ul className="space-y-2">
+              {diagnosis.atsIssues.map((issue, idx) => (
+                <li
+                  key={idx}
+                  className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 animate-fade-in"
+                  style={{ animationDelay: `${idx * 80}ms` }}
+                >
+                  <span className="mt-0.5 w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
+                    {idx + 1}
+                  </span>
+                  <span className="text-sm text-slate-700">{issue}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
       {/* 优先修复项 */}
       <Card padding="lg">
         <h3 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">

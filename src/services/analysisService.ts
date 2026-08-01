@@ -3,7 +3,7 @@ import type {
   OptimizationItem, OptimizationStyle, FinalResume, InterviewPrep,
   InterviewMessage,
 } from '@/types';
-import { callLLMWithJSON, callLLM, callLLMForInterview } from './apiService';
+import { callLLMWithJSON, callLLM, callLLMForInterview, callLLMStream, extractJSON } from './apiService';
 import {
   JD_PARSE_SYSTEM, buildJDPrompt,
   DIAGNOSIS_SYSTEM, buildDiagnosisPrompt,
@@ -31,6 +31,17 @@ export const analysisService = {
     return fetchWithTimeout(() => callLLMWithJSON<JDAnalysis>(
       JD_PARSE_SYSTEM, buildJDPrompt(input.jdContent)
     ));
+  },
+
+  /**
+   * JD 解析的流式版本：SSE 逐字输出，结束时提取 JSON。
+   * onChunk 用于前端逐字渲染。
+   */
+  async analyzeJDStream(input: UserInput, onChunk: (delta: string) => void): Promise<JDAnalysis> {
+    const text = await fetchWithTimeout(() => callLLMStream(
+      JD_PARSE_SYSTEM, buildJDPrompt(input.jdContent), onChunk
+    ));
+    return JSON.parse(extractJSON(text)) as JDAnalysis;
   },
 
   async diagnoseResume(input: UserInput, jdAnalysis: JDAnalysis): Promise<ResumeDiagnosis> {

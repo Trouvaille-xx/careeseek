@@ -18,7 +18,7 @@ export function buildJDPrompt(jd: string): string {
 export const DIAGNOSIS_SYSTEM = ROLE + '\n\n你需要根据 JD 分析结果诊断用户的简历，给出评分和改进建议。';
 
 export function buildDiagnosisPrompt(jd: string, resume: string, analysisJSON: string): string {
-  return JSON_REQ + '\n\n基于以下 JD、简历和 JD 分析结果，请输出简历诊断 JSON：\n{\n  "overallScore": number,\n  "dimensionScores": [{"name": "string", "score": number, "reason": "string"}],\n  "priorityFixes": ["string"]\n}\n\nJD 原文：\n' + jd + '\n\n原始简历：\n' + resume + '\n\nJD 分析结果：\n' + analysisJSON;
+  return JSON_REQ + '\n\n基于以下 JD、简历和 JD 分析结果，请输出简历诊断 JSON：\n{\n  "overallScore": number,\n  "dimensionScores": [{"name": "string", "score": number, "reason": "string"}],\n  "priorityFixes": ["string"],\n  "atsScore": number,\n  "atsIssues": ["string"]\n}\n\natsScore 是简历对 ATS（求职者追踪系统）的机器可读性评分（0-100）：考察关键词覆盖率、日期与技能是否结构化、是否存在表格/图片/分栏等解析障碍、以及版式是否利于机器提取。atsIssues 列出 2-4 条具体的 ATS 兼容性问题及改进建议。\n\nJD 原文：\n' + jd + '\n\n原始简历：\n' + resume + '\n\nJD 分析结果：\n' + analysisJSON;
 }
 
 export const MATCHING_SYSTEM = ROLE + '\n\n你需要建立 JD 要求与简历证据的匹配表。';

@@ -24,6 +24,9 @@ import {
   InterviewMessage,
   InterviewReport,
   AnalysisHistoryEntry,
+  JobApplication,
+  ApplicationEvent,
+  ApplicationStatus,
 } from '@/types';
 
 interface AppStore {
@@ -51,6 +54,8 @@ interface AppStore {
   interviewLoading: boolean;
   analysisHistory: AnalysisHistoryEntry[];
   resumeAnalysisId: string | null;
+  jdStreamText: string;
+  applications: JobApplication[];
 
   // Actions
   setUserInput: (input: Partial<UserInput>) => void;
@@ -103,7 +108,13 @@ interface AppStore {
   loadAnalysisFromHistory: (id: string) => void;
   deleteAnalysisHistory: (id: string) => void;
   setResumeAnalysisId: (id: string | null) => void;
+  setJdStreamText: (text: string | ((prev: string) => string)) => void;
   newAnalysis: () => void;
+  addApplication: (app: JobApplication) => void;
+  updateApplication: (id: string, patch: Partial<JobApplication>) => void;
+  updateApplicationStatus: (id: string, status: ApplicationStatus) => void;
+  addApplicationEvent: (id: string, event: ApplicationEvent) => void;
+  deleteApplication: (id: string) => void;
   testApiConnection: () => Promise<{ success: boolean; message: string }>;
 }
 
@@ -151,6 +162,8 @@ export const useAppStore = create<AppStore>()(
       interviewLoading: false,
       analysisHistory: [],
       resumeAnalysisId: null,
+      jdStreamText: '',
+      applications: [],
       sidebarExpanded: false,
       uploadedJD: null,
       uploadedResume: null,
@@ -186,6 +199,7 @@ export const useAppStore = create<AppStore>()(
           interviewPrep: null,
           analysisStatus: statuses,
           currentStep: 2,
+          jdStreamText: '',
         });
       },
 
@@ -371,7 +385,11 @@ export const useAppStore = create<AppStore>()(
         const history = existingIdx >= 0
           ? s.analysisHistory.map((h, i) => i === existingIdx ? entry : h)
           : [...s.analysisHistory, entry];
-        return { analysisHistory: history };
+        const trimmed = history.slice(-20);
+        if (trimmed.length < history.length) {
+          console.warn('[careeseek] 分析历史已裁剪至最近 20 条（防止 localStorage 超限）');
+        }
+        return { analysisHistory: trimmed };
       }),
 
       loadAnalysisFromHistory: (id) => set((s) => {
@@ -397,6 +415,47 @@ export const useAppStore = create<AppStore>()(
 
       setResumeAnalysisId: (id) => set({ resumeAnalysisId: id }),
 
+      setJdStreamText: (text) =>
+        set((s) => ({
+          jdStreamText: typeof text === 'function' ? text(s.jdStreamText) : text,
+        })),
+
+      addApplication: (app) =>
+        set((s) => ({ applications: [...s.applications, app] })),
+
+      updateApplication: (id, patch) =>
+        set((s) => ({
+          applications: s.applications.map((a) =>
+            a.id === id ? { ...a, ...patch, updatedAt: Date.now() } : a
+          ),
+        })),
+
+      updateApplicationStatus: (id, status) =>
+        set((s) => ({
+          applications: s.applications.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  status,
+                  appliedAt: status === 'applied' && !a.appliedAt ? Date.now() : a.appliedAt,
+                  updatedAt: Date.now(),
+                }
+              : a
+          ),
+        })),
+
+      addApplicationEvent: (id, event) =>
+        set((s) => ({
+          applications: s.applications.map((a) =>
+            a.id === id
+              ? { ...a, events: [...a.events, event], updatedAt: Date.now() }
+              : a
+          ),
+        })),
+
+      deleteApplication: (id) =>
+        set((s) => ({ applications: s.applications.filter((a) => a.id !== id) })),
+
       newAnalysis: () => {
         const current = useAppStore.getState();
         if (current.userInput.jdContent || current.userInput.resumeContent) {
@@ -418,6 +477,7 @@ export const useAppStore = create<AppStore>()(
           interviewPrep: null,
           uploadedJD: null,
           uploadedResume: null,
+          jdStreamText: '',
         });
       },
 
@@ -436,6 +496,7 @@ export const useAppStore = create<AppStore>()(
           optimizationStyle: 'default',
           finalResume: null,
           interviewPrep: null,
+          jdStreamText: '',
         }),
     }),
     {
@@ -461,12 +522,14 @@ export const useAppStore = create<AppStore>()(
         resumeLibrary: state.resumeLibrary,
         interviewSessions: state.interviewSessions,
         analysisHistory: state.analysisHistory,
+        applications: state.applications,
       }),
       merge: (persisted, current) => {
         const p = persisted as Partial<AppStore> | undefined;
         return {
           ...current,
           ...p,
+          applications: p?.applications ?? [],
           resumeLibrary: {
             basicInfo: null,
             education: [],

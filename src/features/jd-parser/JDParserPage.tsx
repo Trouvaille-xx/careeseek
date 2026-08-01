@@ -2,14 +2,31 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { PageLoading } from '@/components/ui/Spinner';
 
 export function JDParserPage() {
-  const { jdAnalysis, analysisStatus } = useAppStore();
+  const { jdAnalysis, analysisStatus, jdStreamText } = useAppStore();
   const status = analysisStatus[2];
 
   if (status === 'loading') {
-    return <PageLoading text="AI 正在解析 JD 内容..." />;
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <div className="flex items-center gap-3 text-sm text-primary-600">
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-primary-500" />
+          </span>
+          AI 正在解析 JD 内容...
+        </div>
+        {jdStreamText && (
+          <Card padding="lg">
+            <pre className="text-xs text-slate-500 whitespace-pre-wrap leading-relaxed font-sans">
+              {jdStreamText}
+              <span className="inline-block w-2 h-4 bg-primary-400 align-text-bottom animate-pulse" />
+            </pre>
+          </Card>
+        )}
+      </div>
+    );
   }
 
   if (!jdAnalysis) {

@@ -12,6 +12,7 @@ import { InterviewPage } from '@/features/interview/InterviewPage';
 import { AnalysisHomePage } from '@/features/input/AnalysisHomePage';
 import { ResumeLibraryPage } from '@/features/resume-library/ResumeLibraryPage';
 import { MockInterviewPage } from '@/features/interview/MockInterviewPage';
+import { ApplicationsPage } from '@/features/applications/ApplicationsPage';
 import { SyncResumeDialog } from '@/features/resume-library/SyncResumeDialog';
 import { analysisService } from '@/services/analysisService';
 import { Button } from '@/components/ui/Button';
@@ -38,6 +39,7 @@ function App() {
     setOptimizationItems,
     setFinalResume,
     setInterviewPrep,
+    setJdStreamText,
     resumeAnalysisId,
     setResumeAnalysisId,
   } = useAppStore();
@@ -71,7 +73,10 @@ function App() {
     if (processingRef.current.has(2)) return;
     processingRef.current.add(2);
 
-    analysisService.analyzeJD(userInput).then((result) => {
+    setJdStreamText('');
+    analysisService.analyzeJDStream(userInput, (delta) => {
+      setJdStreamText((prev) => prev + delta);
+    }).then((result) => {
       setJdAnalysis(result);
       setAnalysisStatus(2, 'done');
       processingRef.current.delete(2);
@@ -80,7 +85,7 @@ function App() {
       setAnalysisStatus(2, 'idle');
       processingRef.current.delete(2);
     });
-  }, [analysisStatus[2], userInput, setJdAnalysis, setAnalysisStatus]);
+  }, [analysisStatus[2], userInput, setJdAnalysis, setAnalysisStatus, setJdStreamText]);
 
   useEffect(() => {
     if (analysisStatus[2] === 'done' && analysisStatus[3] === 'idle') {
@@ -275,6 +280,7 @@ function App() {
 
   const renderPage = () => {
     switch (currentStep) {
+      case -3: return <ApplicationsPage />;
       case -2: return <MockInterviewPage />;
       case -1: return <ResumeLibraryPage />;
       case 0: return <AnalysisHomePage />;
