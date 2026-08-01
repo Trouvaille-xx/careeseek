@@ -140,10 +140,14 @@ export interface AppState {
 }
 
 // ============ API Settings ============
+/** AI 调用模式：byok 自备 Key 直连 / points 云端积分代理 */
+export type AiMode = 'byok' | 'points';
+
 export interface ApiSettings {
   baseUrl: string;
   apiKey: string;
   model: string;
+  aiMode: AiMode;
 }
 
 // ============ Auth / 托管模式 ============
@@ -167,12 +171,12 @@ export interface AuthState {
   quota: QuotaInfo | null;
 }
 
-/** 后端 /v1/plans 返回的套餐信息 */
+/** 后端 /v1/plans 返回的套餐信息（积分制） */
 export interface PlanInfo {
   id: PlanId;
   name: string;
   price_cny: number;
-  token_limit: number;
+  point_limit: number;
 }
 
 /** 埋点事件 props（仅数字/枚举字符串，禁 PII） */

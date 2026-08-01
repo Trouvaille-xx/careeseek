@@ -82,9 +82,9 @@ export function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const planName = plans.find((p) => p.id === auth.user?.plan)?.name ?? '免费版';
-  const usedWan = Math.round((auth.quota?.used ?? 0) / 10000);
-  const limitWan = Math.round((auth.quota?.limit ?? 0) / 10000);
-  const usedPct = limitWan > 0 ? Math.min(100, Math.round((usedWan / limitWan) * 100)) : 0;
+  const usedPoints = auth.quota?.used ?? 0;
+  const limitPoints = auth.quota?.limit ?? 0;
+  const usedPct = limitPoints > 0 ? Math.min(100, Math.round((usedPoints / limitPoints) * 100)) : 0;
 
   const switchTab = (t: SettingsTab) => {
     setSettingsTab(t);
@@ -221,9 +221,9 @@ export function SettingsPage() {
                     </div>
                     <div className="text-xs text-slate-500 dark:text-neutral-400">
                       <div className="flex justify-between mb-1.5">
-                        <span>本月已用额度</span>
+                        <span>本月已用积分</span>
                         <span className={usedPct >= 90 ? 'text-red-500' : 'text-slate-600 dark:text-neutral-300'}>
-                          {usedWan} 万 / {limitWan} 万 tokens
+                          {usedPoints} / {limitPoints} 积分
                         </span>
                       </div>
                       <div className="h-2 rounded-full bg-slate-200 dark:bg-neutral-700 overflow-hidden">
@@ -285,9 +285,59 @@ export function SettingsPage() {
             <section className="space-y-4">
               <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100">AI 设置</h3>
               <p className="text-xs text-slate-400 -mt-2">
-                用于所有 AI 分析的 API 配置（OpenAI 兼容接口），未配置 Key 时 AI 功能不可用
+                选择 AI 服务的接入方式，保存后生效
               </p>
 
+              {/* 模式切换：BYOK / 积分 */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setLocal({ ...local, aiMode: 'points' })}
+                  className={`rounded-xl border p-4 text-left transition-all ${
+                    local.aiMode === 'points'
+                      ? 'border-primary-400 bg-primary-50/60 dark:border-primary-600 dark:bg-primary-900/20'
+                      : 'border-slate-200 hover:border-slate-300 dark:border-neutral-700 dark:hover:border-neutral-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-medium text-slate-900 dark:text-neutral-100">云端积分</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-neutral-400 leading-relaxed">
+                    登录后按积分消耗，无需 API Key
+                    {auth.user && <span className="block mt-1 text-primary-600 dark:text-primary-300">当前 {auth.quota?.used ?? 0} / {auth.quota?.limit ?? 0} 积分</span>}
+                  </p>
+                </button>
+                <button
+                  onClick={() => setLocal({ ...local, aiMode: 'byok' })}
+                  className={`rounded-xl border p-4 text-left transition-all ${
+                    local.aiMode === 'byok'
+                      ? 'border-primary-400 bg-primary-50/60 dark:border-primary-600 dark:bg-primary-900/20'
+                      : 'border-slate-200 hover:border-slate-300 dark:border-neutral-700 dark:hover:border-neutral-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+                    </svg>
+                    <span className="text-sm font-medium text-slate-900 dark:text-neutral-100">自备 API Key</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-neutral-400 leading-relaxed">
+                    使用你自己的 OpenAI 兼容 Key 直连，不限量
+                  </p>
+                </button>
+              </div>
+
+              {local.aiMode === 'points' && !auth.user && (
+                <div className="text-xs px-3 py-2 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                  积分模式需要先登录。注册即送 1000 积分（约 1 次完整分析）。
+                  <button onClick={() => useAppStore.getState().setCurrentStep(-5)} className="underline ml-1">去登录</button>
+                </div>
+              )}
+
+              {local.aiMode === 'byok' && (
+              <>
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-slate-700 dark:text-neutral-300">API 厂商</label>
                 <select
@@ -377,6 +427,8 @@ export function SettingsPage() {
                   </div>
                 )}
               </div>
+              </>
+              )}
 
               <div className="pt-2 border-t border-slate-100 dark:border-neutral-700 flex justify-end">
                 <Button variant="primary" size="md" onClick={handleSave}>

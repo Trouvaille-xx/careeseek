@@ -1,18 +1,25 @@
 import type Database from 'better-sqlite3';
 
-/** 套餐定义（静态配置）。token_limit 为月配额（所有 LLM 调用累计 token）。 */
+/**
+ * 积分制配额。
+ * 1 积分 = POINT_RATE 个 token（积分 = token / POINT_RATE，向下取整）。
+ * 一次完整分析 ≈ 10 万 token ≈ 1000 积分。
+ */
+export const POINT_RATE = 100;
+
+/** 套餐定义（静态配置）。pointLimit 为月配额（积分）。 */
 export interface Plan {
   id: 'free' | 'pro' | 'power';
   name: string;
   /** 价格，单位：分（人民币） */
   priceCny: number;
-  tokenLimit: number;
+  pointLimit: number;
 }
 
 export const PLANS: Record<Plan['id'], Plan> = {
-  free: { id: 'free', name: '免费版', priceCny: 0, tokenLimit: 100_000 },
-  pro: { id: 'pro', name: 'Pro', priceCny: 1900, tokenLimit: 3_000_000 },
-  power: { id: 'power', name: 'Power', priceCny: 4900, tokenLimit: 10_000_000 },
+  free: { id: 'free', name: '免费版', priceCny: 0, pointLimit: 1000 },
+  pro: { id: 'pro', name: 'Pro', priceCny: 1900, pointLimit: 30000 },
+  power: { id: 'power', name: 'Power', priceCny: 4900, pointLimit: 100000 },
 };
 
 export const PLAN_IDS = Object.keys(PLANS) as Plan['id'][];
@@ -30,9 +37,15 @@ export function monthTokensUsed(db: Database.Database, userId: string, now = Dat
   return row.used;
 }
 
-/** 配额校验：返回 { ok, used, limit } */
+/** token → 积分（向下取整，至少 1 积分） */
+export function tokensToPoints(tokens: number): number {
+  return Math.max(1, Math.floor(tokens / POINT_RATE));
+}
+
+/** 配额校验：返回 { ok, used, limit }（积分单位） */
 export function checkQuota(db: Database.Database, userId: string, planId: Plan['id'], now = Date.now()): { ok: boolean; used: number; limit: number } {
   const plan = PLANS[planId] ?? PLANS.free;
-  const used = monthTokensUsed(db, userId, now);
-  return { ok: used < plan.tokenLimit, used, limit: plan.tokenLimit };
+  const usedTokens = monthTokensUsed(db, userId, now);
+  const used = tokensToPoints(usedTokens);
+  return { ok: used < plan.pointLimit, used, limit: plan.pointLimit };
 }

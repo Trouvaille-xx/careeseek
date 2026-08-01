@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
   UserInput,
@@ -432,6 +432,7 @@ export const useAppStore = create<AppStore>()(
         baseUrl: 'https://api.openai.com/v1',
         apiKey: '',
         model: 'gpt-4o',
+        aiMode: 'byok',
       },
       auth: { token: '', user: null, quota: null },
       authLoading: false,
@@ -1113,7 +1114,7 @@ export const useAppStore = create<AppStore>()(
             currentWorkspace: list.includes(name) ? name : 'default',
             workspaceList: list,
             workspaceData: p.workspaceData,
-            apiSettings: p.apiSettings ?? current.apiSettings,
+            apiSettings: { ...(p.apiSettings ?? current.apiSettings), aiMode: (p.apiSettings?.aiMode ?? current.apiSettings.aiMode ?? 'byok') },
             sidebarExpanded: p.sidebarExpanded ?? current.sidebarExpanded,
             themeMode: p.themeMode ?? 'system',
             auth: p.auth ?? current.auth,
@@ -1128,7 +1129,7 @@ export const useAppStore = create<AppStore>()(
           currentWorkspace: 'default',
           workspaceList: ['default'],
           workspaceData: { default: sanitizeBusiness(legacy as Record<string, unknown>) },
-          apiSettings: legacy.apiSettings ?? current.apiSettings,
+          apiSettings: { ...(legacy.apiSettings ?? current.apiSettings), aiMode: (legacy.apiSettings?.aiMode ?? current.apiSettings.aiMode ?? 'byok') },
           sidebarExpanded: legacy.sidebarExpanded ?? current.sidebarExpanded,
           themeMode: legacy.themeMode ?? 'system',
           auth: (legacy.auth as AuthState | undefined) ?? current.auth,

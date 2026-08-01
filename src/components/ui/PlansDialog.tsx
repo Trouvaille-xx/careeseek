@@ -134,7 +134,7 @@ export function PlansDialog({ open, onClose }: { open: boolean; onClose: () => v
                           ? '求职季标准用量，多岗位并行分析'
                           : '重度用户，无限次迭代优化'}
                         <br />
-                        <span className="text-slate-400">{(p.token_limit / 10000).toFixed(0)} 万 tokens/月</span>
+                        <span className="text-slate-400">{(p.point_limit / 1000).toFixed(0)} 积分/月</span>
                       </p>
                       {isCurrent ? (
                         <Button variant="outline" size="md" disabled>当前套餐</Button>
@@ -178,7 +178,7 @@ export function UpgradeDialog({ quota, onClose }: { quota: { used: number; limit
           </div>
           <h3 className="text-lg font-semibold text-slate-900 dark:text-neutral-100 text-center mb-2">本月额度已用完</h3>
           <p className="text-sm text-slate-500 dark:text-neutral-400 text-center mb-2">
-            当前套餐 {quota?.plan ?? '免费版'} 额度 {Math.round((quota?.used ?? 0) / 10000)} 万 / {Math.round((quota?.limit ?? 0) / 10000)} 万 tokens
+            当前套餐 {quota?.plan ?? '免费版'} 已用 {quota?.used ?? 0} / {quota?.limit ?? 0} 积分
           </p>
           <p className="text-xs text-slate-400 dark:text-neutral-500 text-center mb-6">升级套餐即可继续使用，或等下一自然月额度重置</p>
           <div className="flex justify-center gap-3">

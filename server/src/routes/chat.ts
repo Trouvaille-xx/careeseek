@@ -43,7 +43,7 @@ export function attachChatRoutes(app: FastifyInstance): void {
   app.get('/v1/plans', async () => {
     return {
       plans: Object.values(PLANS).map((p) => ({
-        id: p.id, name: p.name, price_cny: p.priceCny, token_limit: p.tokenLimit,
+        id: p.id, name: p.name, price_cny: p.priceCny, point_limit: p.pointLimit,
       })),
     };
   });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -181,7 +181,7 @@ export function AuthPage() {
               <p className="text-sm text-slate-500 dark:text-neutral-400 mt-2">
                 {mode === 'login'
                   ? '登录后使用云端 AI 服务，无需自备 API Key'
-                  : '注册即送免费额度（10 万 tokens），无需自备 API Key'}
+                  : '注册即送 1000 积分（约 1 次完整分析），无需自备 API Key'}
               </p>
             </div>
 

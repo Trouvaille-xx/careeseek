@@ -1,4 +1,4 @@
-import { useAppStore } from '@/stores/useAppStore';
+﻿import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
 import { PlansDialog } from '@/components/ui/PlansDialog';
 import { track } from '@/services/tracker';
@@ -166,20 +166,20 @@ export function LandingPage() {
           <div className="bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-neutral-700 p-6 text-center">
             <h3 className="text-sm font-medium text-slate-900 dark:text-neutral-100">免费版</h3>
             <p className="text-2xl font-bold text-slate-900 dark:text-neutral-100 mt-2">¥0</p>
-            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 mb-4">注册即得</p>
-            <p className="text-xs text-slate-500 dark:text-neutral-400">10 万 tokens/月<br />约 3 次完整分析</p>
+            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 mb-4">1000 积分</p>
+            <p className="text-xs text-slate-500 dark:text-neutral-400">约 1 次完整分析<br />体验核心功能</p>
           </div>
           <div className="bg-white dark:bg-neutral-800 rounded-xl border-2 border-primary-400 dark:border-primary-600 p-6 text-center shadow-lg shadow-primary-500/5 relative">
             <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] text-white bg-primary-500 px-2 py-0.5 rounded-full">最受欢迎</span>
             <h3 className="text-sm font-medium text-slate-900 dark:text-neutral-100">Pro</h3>
             <p className="text-2xl font-bold text-slate-900 dark:text-neutral-100 mt-2">¥19<span className="text-xs text-slate-400 font-normal">/月</span></p>
-            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 mb-4">300 万 tokens</p>
+            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 mb-4">30000 积分</p>
             <p className="text-xs text-slate-500 dark:text-neutral-400">典型求职季用量 5 倍余量<br />多岗位并行分析</p>
           </div>
           <div className="bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-neutral-700 p-6 text-center">
             <h3 className="text-sm font-medium text-slate-900 dark:text-neutral-100">Power</h3>
             <p className="text-2xl font-bold text-slate-900 dark:text-neutral-100 mt-2">¥49<span className="text-xs text-slate-400 font-normal">/月</span></p>
-            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 mb-4">1000 万 tokens</p>
+            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 mb-4">100000 积分</p>
             <p className="text-xs text-slate-500 dark:text-neutral-400">重度使用不限量迭代<br />适合长期多目标求职</p>
           </div>
         </div>

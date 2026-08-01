@@ -22,13 +22,16 @@ function isRetryableError(e: unknown, status?: number): boolean {
 }
 
 /**
- * 决定请求目标与鉴权方式：
- * - 已登录（auth.token）→ 走托管代理（getProxyBase()/chat/completions，Bearer 会话 token）
- * - 未登录 → BYOK 直连（apiSettings.baseUrl + apiKey）
+ * 决定请求目标与鉴权方式（依据设置页的 AI 模式）：
+ * - points 模式（云端积分）：登录 → 走托管代理（getProxyBase()/chat/completions，Bearer 会话 token）
+ * - byok 模式（自备 Key）：直连 apiSettings.baseUrl + apiKey
  */
 function resolveEndpoint(): { url: string; headers: Record<string, string>; model: string } {
   const { auth, apiSettings } = useAppStore.getState();
-  if (auth.token) {
+  if (apiSettings.aiMode === 'points') {
+    if (!auth.token) {
+      throw new Error('请先登录以使用云端积分（设置 → AI 设置 → 切换为积分模式）');
+    }
     return {
       url: `${getProxyBase()}/chat/completions`,
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` },
@@ -36,7 +39,7 @@ function resolveEndpoint(): { url: string; headers: Record<string, string>; mode
     };
   }
   if (!apiSettings.apiKey) {
-    throw new Error('请先在设置中配置 API Key，或登录使用云端 AI 服务');
+    throw new Error('请先在设置中配置 API Key，或切换到云端积分模式（登录即可）');
   }
   return {
     url: `${apiSettings.baseUrl.replace(/\/+$/, '')}/chat/completions`,
