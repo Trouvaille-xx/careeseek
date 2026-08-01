@@ -26,9 +26,18 @@ const STYLE_META: { key: OptimizationStyle; label: string; desc: string }[] = [
   { key: 'tob-saas', label: '企业服务向', desc: '侧重 B 端业务价值表达' },
 ];
 
-type SettingsTab = 'ai' | 'preferences' | 'data';
+type SettingsTab = 'account' | 'ai' | 'preferences' | 'data';
 
 const TABS: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
+  {
+    key: 'account',
+    label: '账户',
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+      </svg>
+    ),
+  },
   {
     key: 'ai',
     label: 'AI 设置',
@@ -59,8 +68,8 @@ const TABS: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function SettingsPage() {
-  const { apiSettings, setApiSettings, testApiConnection, optimizationStyle, setOptimizationStyle, themeMode, setThemeMode, auth, plans, quotaError, setQuotaError } = useAppStore();
-  const [tab, setTab] = useState<SettingsTab>('ai');
+  const { apiSettings, setApiSettings, testApiConnection, optimizationStyle, setOptimizationStyle, themeMode, setThemeMode, auth, plans, settingsTab, setSettingsTab } = useAppStore();
+  const tab = settingsTab as SettingsTab;
   const [local, setLocal] = useState({ ...apiSettings });
   const [customMode, setCustomMode] = useState(
     !PRESET_PROVIDERS.some((p) => p.url === apiSettings.baseUrl)
@@ -75,6 +84,11 @@ export function SettingsPage() {
   const planName = plans.find((p) => p.id === auth.user?.plan)?.name ?? '免费版';
   const usedWan = Math.round((auth.quota?.used ?? 0) / 10000);
   const limitWan = Math.round((auth.quota?.limit ?? 0) / 10000);
+  const usedPct = limitWan > 0 ? Math.min(100, Math.round((usedWan / limitWan) * 100)) : 0;
+
+  const switchTab = (t: SettingsTab) => {
+    setSettingsTab(t);
+  };
 
   const isPresetUrl = !customMode && PRESET_PROVIDERS.some((p) => p.url === local.baseUrl);
 
@@ -139,57 +153,12 @@ export function SettingsPage() {
 
   return (
     <div className="flex gap-6 items-start">
-      {/* Left column: account card + menu */}
-      <div className="w-52 shrink-0 space-y-3">
-        {/* Account card */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800/60">
-          {auth.user ? (
-            <>
-              <p className="text-xs text-slate-400 dark:text-neutral-500 mb-1">当前账户</p>
-              <p className="text-sm font-medium text-slate-900 dark:text-neutral-100 truncate mb-2">{auth.user.email}</p>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 px-2 py-0.5 rounded-full">
-                  {planName}
-                </span>
-                <button
-                  onClick={() => setShowPlans(true)}
-                  className="text-xs text-primary-600 dark:text-primary-300 hover:underline"
-                >
-                  {auth.user.plan === 'free' ? '升级' : '套餐'}
-                </button>
-              </div>
-              <div className="text-[11px] text-slate-500 dark:text-neutral-400">
-                <div className="flex justify-between mb-1">
-                  <span>本月额度</span>
-                  <span>{usedWan} 万 / {limitWan} 万 tokens</span>
-                </div>
-                <div className="h-1.5 rounded-full bg-slate-100 dark:bg-neutral-700 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${usedWan >= limitWan ? 'bg-red-400' : 'bg-primary-500'}`}
-                    style={{ width: `${limitWan > 0 ? Math.min(100, (usedWan / limitWan) * 100) : 0}%` }}
-                  />
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-xs text-slate-400 dark:text-neutral-500 mb-2">未登录</p>
-              <p className="text-xs text-slate-500 dark:text-neutral-400 mb-3 leading-relaxed">
-                登录后使用云端 AI 服务，无需自备 API Key
-              </p>
-              <Button size="sm" className="w-full" onClick={() => useAppStore.getState().setCurrentStep(-5)}>
-                登录 / 注册
-              </Button>
-            </>
-          )}
-        </div>
-
-        {/* Left menu */}
-        <div className="rounded-xl border border-slate-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800/60">
+      {/* Left: pure tab menu */}
+      <div className="w-52 shrink-0 rounded-xl border border-slate-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800/60">
         {TABS.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => switchTab(t.key)}
             className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
               tab === t.key
                 ? 'bg-primary-50 text-primary-700 font-medium dark:bg-neutral-700 dark:text-neutral-100'
@@ -200,7 +169,6 @@ export function SettingsPage() {
             {t.label}
           </button>
         ))}
-        </div>
       </div>
 
       {/* Right detail */}
@@ -211,6 +179,108 @@ export function SettingsPage() {
           </div>
         )}
         <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800/60">
+          {tab === 'account' && (
+            <section className="space-y-5">
+              {auth.user ? (
+                <>
+                  {/* 用户信息 */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-primary-100 dark:bg-neutral-700 flex items-center justify-center shrink-0">
+                      <span className="text-xl font-semibold text-primary-700 dark:text-primary-300">
+                        {auth.user.email[0]?.toUpperCase() ?? '?'}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 truncate">{auth.user.email}</h3>
+                        <span className="text-[10px] text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 px-2 py-0.5 rounded-full shrink-0">{planName}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 dark:text-neutral-500 mt-0.5">已登录 · 云端 AI 服务模式</p>
+                    </div>
+                  </div>
+
+                  {/* 套餐与额度 */}
+                  <div className="rounded-xl bg-slate-50 dark:bg-neutral-900/40 border border-slate-100 dark:border-neutral-800 p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-neutral-100">{planName}套餐</p>
+                        <p className="text-xs text-slate-400 dark:text-neutral-500 mt-0.5">
+                          {auth.user.plan === 'free'
+                            ? '免费额度：体验核心分析功能'
+                            : '已解锁完整功能与充足额度'}
+                        </p>
+                      </div>
+                      {auth.user.plan !== 'power' && (
+                        <Button size="sm" onClick={() => setShowPlans(true)}>
+                          {auth.user.plan === 'free' ? '升级套餐' : '套餐详情'}
+                        </Button>
+                      )}
+                      {auth.user.plan === 'power' && (
+                        <Button variant="outline" size="sm" onClick={() => setShowPlans(true)}>套餐详情</Button>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-neutral-400">
+                      <div className="flex justify-between mb-1.5">
+                        <span>本月已用额度</span>
+                        <span className={usedPct >= 90 ? 'text-red-500' : 'text-slate-600 dark:text-neutral-300'}>
+                          {usedWan} 万 / {limitWan} 万 tokens
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-slate-200 dark:bg-neutral-700 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${usedPct >= 90 ? 'bg-red-400' : 'bg-primary-500'}`}
+                          style={{ width: `${usedPct}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 隐私说明 */}
+                  <div className="flex items-start gap-3 rounded-xl border border-slate-100 dark:border-neutral-800 p-4">
+                    <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-300 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900 dark:text-neutral-100">数据隐私</p>
+                      <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5 leading-relaxed">
+                        你的简历内容只保存在本机浏览器，不会上传到服务器。云端仅记录用量与匿名统计，不含任何简历内容。
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 退出 */}
+                  <div className="pt-1 border-t border-slate-100 dark:border-neutral-800">
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={async () => {
+                        if (window.confirm('确定退出登录？退出后 AI 分析将使用自备 API Key 模式。')) {
+                          await useAppStore.getState().logout();
+                          useAppStore.getState().setCurrentStep(0);
+                        }
+                      }}
+                    >
+                      退出登录
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-neutral-700 flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-7 h-7 text-slate-400 dark:text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-medium text-slate-900 dark:text-neutral-100 mb-1">未登录</p>
+                  <p className="text-xs text-slate-400 dark:text-neutral-500 mb-5">登录后使用云端 AI 服务，无需自备 API Key</p>
+                  <Button size="md" onClick={() => useAppStore.getState().setCurrentStep(-5)}>
+                    登录 / 注册
+                  </Button>
+                </div>
+              )}
+            </section>
+          )}
+
           {tab === 'ai' && (
             <section className="space-y-4">
               <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100">AI 设置</h3>

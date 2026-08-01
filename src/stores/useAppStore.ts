@@ -175,6 +175,9 @@ interface AppStore {
   plans: PlanInfo[];
   quotaError: { used: number; limit: number; plan: string } | null;
   setQuotaError: (q: { used: number; limit: number; plan: string } | null) => void;
+  /** 设置页当前 tab（账户/AI/偏好/数据） */
+  settingsTab: string;
+  setSettingsTab: (tab: string) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -436,6 +439,8 @@ export const useAppStore = create<AppStore>()(
       plans: [],
       quotaError: null,
       setQuotaError: (q) => set({ quotaError: q }),
+      settingsTab: 'account',
+      setSettingsTab: (tab) => set({ settingsTab: tab }),
 
       setUserInput: (input) =>
         set((s) => ({ userInput: { ...s.userInput, ...input } })),
