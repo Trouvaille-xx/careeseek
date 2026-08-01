@@ -166,6 +166,7 @@ export function UpgradeDialog({ quota, onClose }: { quota: { used: number; limit
   useEffect(() => {
     if (quota) track('paywall_shown', { reason: 'quota' });
   }, [quota]);
+  if (!quota) return null;
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in">

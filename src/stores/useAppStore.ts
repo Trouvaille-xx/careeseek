@@ -393,7 +393,7 @@ function builderEdit(
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      currentStep: 1,
+      currentStep: 0,
       userInput: { ...defaultInput },
       analysisStatus: { ...defaultAnalysisStatus },
       isAnalyzing: false,
