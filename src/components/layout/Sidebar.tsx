@@ -105,26 +105,27 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
                         {planName} · {auth.quota?.used ?? 0}/{auth.quota?.limit ?? 0} 积分
                       </span>
                     </div>
-                    {/* 主题切换 */}
                     <div className="px-4 py-2.5 border-b border-slate-100 dark:border-neutral-700">
                       <p className="text-[11px] text-slate-400 dark:text-neutral-500 mb-1.5">主题</p>
                       <div className="flex bg-slate-100 dark:bg-neutral-700/60 rounded-lg p-0.5 gap-0.5">
-                        {THEME_OPTIONS.map((t) => (
+                        {([['light', '浅色'], ['dark', '深色'], ['system', '跟随系统']] as const).map(([mode, label]) => (
                           <button
-                            key={t.value}
+                            key={mode}
                             type="button"
-                            onClick={() => setThemeMode(t.value)}
-                            className={`flex-1 px-1 py-1.5 rounded-md text-[11px] transition-colors ${
-                              themeMode === t.value
-                                ? 'bg-white text-slate-900 font-medium shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                            title={label}
+                            onClick={() => setThemeMode(mode)}
+                            className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${
+                              themeMode === mode
+                                ? 'bg-white text-slate-900 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
                                 : 'text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200'
                             }`}
                           >
-                            {t.label}
+                            <ThemeIcon mode={mode} />
                           </button>
                         ))}
                       </div>
                     </div>
+
                     <MenuRow
                       icon={
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -157,18 +158,19 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
                     <div className="px-4 py-2.5 border-b border-slate-100 dark:border-neutral-700">
                       <p className="text-[11px] text-slate-400 dark:text-neutral-500 mb-1.5">主题</p>
                       <div className="flex bg-slate-100 dark:bg-neutral-700/60 rounded-lg p-0.5 gap-0.5">
-                        {THEME_OPTIONS.map((t) => (
+                        {([['light', '浅色'], ['dark', '深色'], ['system', '跟随系统']] as const).map(([mode, label]) => (
                           <button
-                            key={t.value}
+                            key={mode}
                             type="button"
-                            onClick={() => setThemeMode(t.value)}
-                            className={`flex-1 px-1 py-1.5 rounded-md text-[11px] transition-colors ${
-                              themeMode === t.value
-                                ? 'bg-white text-slate-900 font-medium shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                            title={label}
+                            onClick={() => setThemeMode(mode)}
+                            className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${
+                              themeMode === mode
+                                ? 'bg-white text-slate-900 shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
                                 : 'text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200'
                             }`}
                           >
-                            {t.label}
+                            <ThemeIcon mode={mode} />
                           </button>
                         ))}
                       </div>
@@ -185,26 +187,7 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
                         setCurrentStep(-5);
                       }}
                     />
-                    {/* 主题切换 */}
-                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-neutral-700">
-                      <p className="text-[11px] text-slate-400 dark:text-neutral-500 mb-1.5">主题</p>
-                      <div className="flex bg-slate-100 dark:bg-neutral-700/60 rounded-lg p-0.5 gap-0.5">
-                        {THEME_OPTIONS.map((t) => (
-                          <button
-                            key={t.value}
-                            type="button"
-                            onClick={() => setThemeMode(t.value)}
-                            className={`flex-1 px-1 py-1.5 rounded-md text-[11px] transition-colors ${
-                              themeMode === t.value
-                                ? 'bg-white text-slate-900 font-medium shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
-                                : 'text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-                            }`}
-                          >
-                            {t.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+
                     <MenuRow
                       icon={
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -262,6 +245,28 @@ function MenuItem({
 }
 
 /** 账户浮层菜单行 */
+/** 主题图标：浅色/深色/跟随系统 */
+function ThemeIcon({ mode }: { mode: 'light' | 'dark' | 'system' }) {
+  if (mode === 'light') {
+    return (
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+      </svg>
+    );
+  }
+  if (mode === 'dark') {
+    return (
+      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+    </svg>
+  );
+}
 function MenuRow({ icon, label, danger, onClick }: { icon: React.ReactNode; label: string; danger?: boolean; onClick: () => void }) {
   return (
     <button
