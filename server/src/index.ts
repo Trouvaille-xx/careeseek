@@ -1,11 +1,17 @@
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import type Database from 'better-sqlite3';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
 import { attachAuthRoutes } from './auth.js';
 import { attachChatRoutes } from './routes/chat.js';
 import { attachEventsRoutes } from './routes/events.js';
 import { attachPaymentsRoutes } from './routes/payments.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DIST_DIR = process.env.DIST_DIR ?? path.join(__dirname, '..', '..', 'dist');
 
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -45,6 +51,25 @@ attachEventsRoutes(app);
 attachPaymentsRoutes(app);
 
 app.get('/health', async () => ({ ok: true, ts: Date.now() }));
+
+// 静态文件服务（生产同域部署；dist 存在时启用）
+if (fs.existsSync(DIST_DIR)) {
+  const assetsDir = path.join(DIST_DIR, 'assets');
+  app.get<{ Params: { '*': string } }>('/assets/*', async (req, reply) => {
+    const rest = (req.params as { '*': string })['*'];
+    const file = path.join(assetsDir, rest ?? '');
+    if (!file.startsWith(assetsDir) || !fs.existsSync(file)) {
+      return reply.status(404).send('Not Found');
+    }
+    const ext = path.extname(file);
+    const mime = ext === '.js' ? 'application/javascript' : ext === '.css' ? 'text/css' : null;
+    if (mime) reply.type(mime);
+    return reply.send(fs.readFileSync(file));
+  });
+  app.get('/*', async (_req, reply) => {
+    reply.type('text/html').send(fs.readFileSync(path.join(DIST_DIR, 'index.html')));
+  });
+}
 
 try {
   await app.listen({ port: PORT, host: HOST });

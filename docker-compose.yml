@@ -1,0 +1,18 @@
+services:
+  careeseek:
+    build: .
+    image: careeseek:latest
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      UPSTREAM_BASE_URL: ${UPSTREAM_BASE_URL:-https://api.deepseek.com/v1}
+      UPSTREAM_API_KEY: ${UPSTREAM_API_KEY:-}
+      PAY_MODE: ${PAY_MODE:-mock}
+      DB_PATH: /app/data/careeseek.db
+    volumes:
+      - careeseek-data:/app/data
+
+volumes:
+  careeseek-data:
