@@ -53,6 +53,7 @@ function App() {
     quotaError,
     setQuotaError,
     auth,
+    analysisHistory,
   } = useAppStore();
 
   useEffect(() => {
@@ -344,8 +345,7 @@ function App() {
       case -1: return <ResumeLibraryPage />;
       case 0: {
         // 新访客（未登录且无历史）→ 产品落地页；否则 → 分析工作台
-        const s = useAppStore.getState();
-        const hasData = auth.user !== null || s.analysisHistory.length > 0;
+        const hasData = auth.user !== null || analysisHistory.length > 0;
         return hasData ? <AnalysisHomePage /> : <LandingPage />;
       }
       case 1: return <InputPage />;
@@ -363,9 +363,10 @@ function App() {
   const isAnalysisStep = currentStep >= 1 && currentStep <= 8;
   const isLastStep = currentStep === 8;
   const ready = stepReady[currentStep];
+  const isLanding = currentStep === 0 && auth.user === null && analysisHistory.length === 0;
 
   return (
-    <MainLayout>
+    <MainLayout bare={isLanding}>
       {renderPage()}
 
       {/* Step footer with next button */}

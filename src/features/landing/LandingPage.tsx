@@ -28,6 +28,40 @@ export function LandingPage() {
 
   return (
     <div className="animate-fade-in">
+      {/* ===== 顶部导航（独立于应用壳） ===== */}
+      <header className="sticky top-0 z-40 bg-white/80 dark:bg-neutral-950/80 backdrop-blur border-b border-slate-100 dark:border-neutral-800">
+        <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-primary-100 dark:bg-neutral-700 flex items-center justify-center">
+              <svg className="w-4 h-4 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <span className="text-sm font-semibold text-slate-900 dark:text-neutral-100">CareeSeek</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePlans}
+              className="px-3 py-1.5 rounded-lg text-sm text-slate-500 dark:text-neutral-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 transition-colors"
+            >
+              定价
+            </button>
+            {auth.token ? (
+              <button
+                onClick={() => setCurrentStep(0)}
+                className="px-4 py-1.5 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 transition-colors"
+              >
+                进入工作台
+              </button>
+            ) : (
+              <Button size="sm" onClick={() => setCurrentStep(-5)}>
+                登录 / 注册
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+
       {/* ===== Hero ===== */}
       <section className="text-center py-16 md:py-24 px-4">
         <div className="inline-flex items-center gap-1.5 text-xs text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 border border-primary-100 dark:border-primary-800 rounded-full px-3 py-1 mb-6">

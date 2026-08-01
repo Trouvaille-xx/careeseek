@@ -32,6 +32,8 @@ export function AuthPage() {
         track('app_open', { is_first: 'yes' });
       }
       void fetchPlans();
+      // 登录成功后进入工作台
+      useAppStore.getState().setCurrentStep(0);
     } catch (e) {
       setError((e as Error).message);
     }

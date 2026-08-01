@@ -6,9 +6,11 @@ import { useAppStore } from '@/stores/useAppStore';
 
 interface MainLayoutProps {
   children: React.ReactNode;
+  /** 裸模式：无应用壳（TopNav/Sidebar/进度条），用于产品落地页 */
+  bare?: boolean;
 }
 
-export function MainLayout({ children }: MainLayoutProps) {
+export function MainLayout({ children, bare = false }: MainLayoutProps) {
   const { currentStep, setCurrentStep, reset } = useAppStore();
 
   // Compute step statuses
@@ -39,6 +41,14 @@ export function MainLayout({ children }: MainLayoutProps) {
     reset();
     setCurrentStep(1);
   };
+
+  if (bare) {
+    return (
+      <div className="h-screen flex flex-col bg-white dark:bg-neutral-950 overflow-y-auto scrollbar-thin">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-neutral-950">
