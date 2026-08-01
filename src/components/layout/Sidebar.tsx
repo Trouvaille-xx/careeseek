@@ -1,13 +1,12 @@
 ﻿import React, { useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
-import { THEME_OPTIONS } from '@/utils/theme';
 
 interface SidebarProps {
   onNewAnalysis: () => void;
 }
 
 export function Sidebar({ onNewAnalysis }: SidebarProps) {
-  const { currentStep, themeMode, setThemeMode, auth, plans, setCurrentStep } = useAppStore();
+  const { currentStep, auth, plans, setCurrentStep } = useAppStore();
   const [accountOpen, setAccountOpen] = useState(false);
   const planName = plans.find((p) => p.id === auth.user?.plan)?.name;
 
@@ -61,29 +60,8 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Bottom: account button + settings */}
-        <div className="p-3 border-t border-slate-100 dark:border-neutral-700 space-y-2 relative">
-          {/* 主题切换 */}
-          <div className="px-3">
-            <span className="text-[10px] text-slate-400 dark:text-neutral-500">主题</span>
-            <div className="flex bg-slate-100 rounded-lg p-0.5 gap-0.5 mt-1 dark:bg-neutral-700/60">
-              {THEME_OPTIONS.map((t) => (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => setThemeMode(t.value)}
-                  className={`flex-1 px-1 py-1 rounded-md text-[11px] transition-colors ${
-                    themeMode === t.value
-                      ? 'bg-white text-slate-900 font-medium shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
-                      : 'text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
+        {/* Bottom: account button */}
+        <div className="p-3 border-t border-slate-100 dark:border-neutral-700 relative">
           {/* 账户按钮（ChatGPT 风格：点击弹浮层） */}
           <button
             onClick={() => setAccountOpen((v) => !v)}
