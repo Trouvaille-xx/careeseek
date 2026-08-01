@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { analysisService } from '@/services/analysisService';
+import { track } from '@/services/tracker';
 import type { InterviewMessage, InterviewReport } from '@/types';
 
 export function MockInterviewPage() {
@@ -25,6 +26,7 @@ export function MockInterviewPage() {
 
   const handleStart = async (selectedMode: 'real' | 'learning') => {
     setMode(selectedMode);
+    track('interview_started', { mode: selectedMode });
     startInterview(selectedMode);
     setPhase('interview');
     setInterviewLoading(true);
@@ -84,6 +86,7 @@ export function MockInterviewPage() {
       summary: `本次${mode === 'real' ? '真实面试' : '学习模式面试'}共进行了${userMsgs.length}轮问答。整体表现${overall >= 75 ? '良好' : '中等'}。`,
     };
     completeInterview(report);
+    track('interview_completed', { rounds: userMsgs.length, score: overall });
     setPhase('report');
   };
 

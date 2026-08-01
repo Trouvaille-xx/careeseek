@@ -10,6 +10,7 @@ import { OptimizationPage } from '@/features/optimization/OptimizationPage';
 import { FinalResumePage } from '@/features/final-resume/FinalResumePage';
 import { InterviewPage } from '@/features/interview/InterviewPage';
 import { AnalysisHomePage } from '@/features/input/AnalysisHomePage';
+import { LandingPage } from '@/features/landing/LandingPage';
 import { AuthPage } from '@/features/auth/AuthPage';
 import { ResumeLibraryPage } from '@/features/resume-library/ResumeLibraryPage';
 import { MockInterviewPage } from '@/features/interview/MockInterviewPage';
@@ -51,6 +52,7 @@ function App() {
     themeMode,
     quotaError,
     setQuotaError,
+    auth,
   } = useAppStore();
 
   useEffect(() => {
@@ -104,15 +106,18 @@ function App() {
     processingRef.current.add(2);
 
     setJdStreamText('');
+    const t0 = Date.now();
     analysisService.analyzeJDStream(userInput, (delta) => {
       setJdStreamText((prev) => prev + delta);
     }).then((result) => {
       setJdAnalysis(result);
       setAnalysisStatus(2, 'done');
+      track('analysis_step_completed', { step: 2, duration_ms: Date.now() - t0 });
       processingRef.current.delete(2);
     }).catch((e) => {
       console.error('分析失败:', e);
       setAnalysisStatus(2, 'error');
+      track('analysis_step_failed', { step: 2, duration_ms: Date.now() - t0 });
       processingRef.current.delete(2);
     });
   }, [analysisStatus[2], userInput, setJdAnalysis, setAnalysisStatus, setJdStreamText]);
@@ -129,13 +134,16 @@ function App() {
     if (jdAnalysis === null) return;
     processingRef.current.add(3);
 
+    const t0 = Date.now();
     analysisService.diagnoseResume(userInput, jdAnalysis).then((result) => {
       setDiagnosis(result);
       setAnalysisStatus(3, 'done');
+      track('analysis_step_completed', { step: 3, duration_ms: Date.now() - t0 });
       processingRef.current.delete(3);
     }).catch((e) => {
       console.error('诊断失败:', e);
       setAnalysisStatus(3, 'error');
+      track('analysis_step_failed', { step: 3, duration_ms: Date.now() - t0 });
       processingRef.current.delete(3);
     });
   }, [analysisStatus[3], userInput, jdAnalysis, setDiagnosis, setAnalysisStatus]);
@@ -152,13 +160,16 @@ function App() {
     if (jdAnalysis === null || diagnosis === null) return;
     processingRef.current.add(4);
 
+    const t0 = Date.now();
     analysisService.analyzeMatching(userInput, jdAnalysis, diagnosis).then((result) => {
       setMatchingRows(result);
       setAnalysisStatus(4, 'done');
+      track('analysis_step_completed', { step: 4, duration_ms: Date.now() - t0 });
       processingRef.current.delete(4);
     }).catch((e) => {
       console.error('匹配分析失败:', e);
       setAnalysisStatus(4, 'error');
+      track('analysis_step_failed', { step: 4, duration_ms: Date.now() - t0 });
       processingRef.current.delete(4);
     });
   }, [analysisStatus[4], userInput, jdAnalysis, diagnosis, setMatchingRows, setAnalysisStatus]);
@@ -175,13 +186,16 @@ function App() {
     if (jdAnalysis === null || diagnosis === null) return;
     processingRef.current.add(5);
 
+    const t0 = Date.now();
     analysisService.generateQuestions(userInput, jdAnalysis, diagnosis, matchingRows).then((result) => {
       setFollowUpQuestions(result);
       setAnalysisStatus(5, 'done');
+      track('analysis_step_completed', { step: 5, duration_ms: Date.now() - t0 });
       processingRef.current.delete(5);
     }).catch((e) => {
       console.error('生成追问失败:', e);
       setAnalysisStatus(5, 'error');
+      track('analysis_step_failed', { step: 5, duration_ms: Date.now() - t0 });
       processingRef.current.delete(5);
     });
   }, [analysisStatus[5], userInput, jdAnalysis, diagnosis, matchingRows, setFollowUpQuestions, setAnalysisStatus]);
@@ -204,13 +218,16 @@ function App() {
     if (processingRef.current.has(6)) return;
     processingRef.current.add(6);
 
+    const t0 = Date.now();
     analysisService.optimizeResume(userInput, jdAnalysis!, diagnosis!, matchingRows, followUpQuestions, optimizationStyle).then((result) => {
       setOptimizationItems(result);
       setAnalysisStatus(6, 'done');
+      track('analysis_step_completed', { step: 6, duration_ms: Date.now() - t0 });
       processingRef.current.delete(6);
     }).catch((e) => {
       console.error('优化失败:', e);
       setAnalysisStatus(6, 'error');
+      track('analysis_step_failed', { step: 6, duration_ms: Date.now() - t0 });
       processingRef.current.delete(6);
     });
   }, [analysisStatus[6], userInput, jdAnalysis, diagnosis, matchingRows, followUpQuestions, optimizationStyle, setOptimizationItems, setAnalysisStatus]);
@@ -226,13 +243,16 @@ function App() {
     if (processingRef.current.has(7)) return;
     processingRef.current.add(7);
 
+    const t0 = Date.now();
     analysisService.generateFinalResume(userInput, optimizationItems).then((result) => {
       setFinalResume(result);
       setAnalysisStatus(7, 'done');
+      track('analysis_step_completed', { step: 7, duration_ms: Date.now() - t0 });
       processingRef.current.delete(7);
     }).catch((e) => {
       console.error('生成最终简历失败:', e);
       setAnalysisStatus(7, 'error');
+      track('analysis_step_failed', { step: 7, duration_ms: Date.now() - t0 });
       processingRef.current.delete(7);
     });
   }, [analysisStatus[7], userInput, optimizationItems, setFinalResume, setAnalysisStatus]);
@@ -249,13 +269,17 @@ function App() {
     if (jdAnalysis === null || diagnosis === null) return;
     processingRef.current.add(8);
 
+    const t0 = Date.now();
     analysisService.generateInterviewPrep(userInput, jdAnalysis, diagnosis).then((result) => {
       setInterviewPrep(result);
       setAnalysisStatus(8, 'done');
+      track('analysis_step_completed', { step: 8, duration_ms: Date.now() - t0 });
+      track('analysis_completed', { total_duration_ms: 0 });
       processingRef.current.delete(8);
     }).catch((e) => {
       console.error('生成面试准备失败:', e);
       setAnalysisStatus(8, 'error');
+      track('analysis_step_failed', { step: 8, duration_ms: Date.now() - t0 });
       processingRef.current.delete(8);
     });
   }, [analysisStatus[8], userInput, jdAnalysis, diagnosis, setInterviewPrep, setAnalysisStatus]);
@@ -318,7 +342,12 @@ function App() {
       case -3: return <ApplicationsPage />;
       case -2: return <MockInterviewPage />;
       case -1: return <ResumeLibraryPage />;
-      case 0: return <AnalysisHomePage />;
+      case 0: {
+        // 新访客（未登录且无历史）→ 产品落地页；否则 → 分析工作台
+        const s = useAppStore.getState();
+        const hasData = auth.user !== null || s.analysisHistory.length > 0;
+        return hasData ? <AnalysisHomePage /> : <LandingPage />;
+      }
       case 1: return <InputPage />;
       case 2: return <JDParserPage />;
       case 3: return <DiagnosisPage />;

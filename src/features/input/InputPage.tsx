@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input, Textarea } from '@/components/ui/Input';
 import { FileUpload } from '@/components/ui/FileUpload';
+import { track } from '@/services/tracker';
 import { SAMPLE_USER_INPUT } from '@/mock/data';
 
 const STAGES = ['在校', '应届', '1-3年', '3-5年', '5-10年', '10年以上'];
@@ -27,6 +28,8 @@ export function InputPage() {
 
   const handleStartAnalysis = useCallback(() => {
     if (validate()) {
+      track('input_submit', {});
+      track('analysis_step_started', { step: 2 });
       startAnalysis();
     }
   }, [validate, startAnalysis]);

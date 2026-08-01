@@ -7,6 +7,7 @@ import { AnalysisError } from '@/components/ui/AnalysisError';
 import { PageLoading } from '@/components/ui/Spinner';
 import { exportJSON, exportBuilderPDF } from '@/services/exportService';
 import { finalResumeToDraft } from '@/services/resumeDraftService';
+import { track } from '@/services/tracker';
 
 export function FinalResumePage() {
   const { finalResume, analysisStatus, userInput, resumeLibrary } = useAppStore();
@@ -52,6 +53,7 @@ export function FinalResumePage() {
   const handleExportJSON = useCallback(() => {
     if (!finalResume) return;
     exportJSON(finalResume);
+    track('export_json', { source: 'final' });
     setExportOpen(false);
   }, [finalResume]);
 
@@ -61,6 +63,7 @@ export function FinalResumePage() {
     try {
       const draft = finalResumeToDraft(finalResume, resumeLibrary, personalInfoLine);
       await exportBuilderPDF(draft);
+      track('export_pdf', { source: 'final', template: 'classic' });
       setExportOpen(false);
     } finally {
       setExportingPdf(false);
