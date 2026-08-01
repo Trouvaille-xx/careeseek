@@ -16,6 +16,7 @@ import { MockInterviewPage } from '@/features/interview/MockInterviewPage';
 import { ApplicationsPage } from '@/features/applications/ApplicationsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SyncResumeDialog } from '@/features/resume-library/SyncResumeDialog';
+import { UpgradeDialog } from '@/components/ui/PlansDialog';
 import { analysisService } from '@/services/analysisService';
 import { initTracker, track } from '@/services/tracker';
 import { Button } from '@/components/ui/Button';
@@ -48,6 +49,8 @@ function App() {
     resumeAnalysisId,
     setResumeAnalysisId,
     themeMode,
+    quotaError,
+    setQuotaError,
   } = useAppStore();
 
   useEffect(() => {
@@ -389,6 +392,9 @@ function App() {
 
       {/* Sync to resume library dialog */}
       <SyncResumeDialog open={showSyncDialog} onClose={() => setShowSyncDialog(false)} />
+
+      {/* Quota exceeded upgrade dialog */}
+      <UpgradeDialog quota={quotaError} onClose={() => setQuotaError(null)} />
     </MainLayout>
   );
 }

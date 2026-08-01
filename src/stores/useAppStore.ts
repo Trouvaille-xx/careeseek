@@ -173,6 +173,8 @@ interface AppStore {
   authLoading: boolean;
   authError: string | null;
   plans: PlanInfo[];
+  quotaError: { used: number; limit: number; plan: string } | null;
+  setQuotaError: (q: { used: number; limit: number; plan: string } | null) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -432,6 +434,8 @@ export const useAppStore = create<AppStore>()(
       authLoading: false,
       authError: null,
       plans: [],
+      quotaError: null,
+      setQuotaError: (q) => set({ quotaError: q }),
 
       setUserInput: (input) =>
         set((s) => ({ userInput: { ...s.userInput, ...input } })),

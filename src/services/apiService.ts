@@ -79,9 +79,11 @@ async function chatCompletion(
 
   if (res.status === 402) {
     const data = await res.json().catch(() => ({}));
+    const quota = (data as { quota?: { used: number; limit: number; plan: string } }).quota ?? { used: 0, limit: 0, plan: 'free' };
+    useAppStore.getState().setQuotaError(quota);
     throw new QuotaExceededError(
       (data as { error?: string }).error || '本月额度已用完，请升级套餐',
-      (data as { quota?: { used: number; limit: number; plan: string } }).quota ?? { used: 0, limit: 0, plan: 'free' }
+      quota
     );
   }
   return res;

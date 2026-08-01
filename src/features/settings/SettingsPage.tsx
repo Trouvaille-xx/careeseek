@@ -2,6 +2,7 @@
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { PlansDialog } from '@/components/ui/PlansDialog';
 import { THEME_OPTIONS } from '@/utils/theme';
 import type { OptimizationStyle } from '@/types';
 
@@ -58,7 +59,7 @@ const TABS: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function SettingsPage() {
-  const { apiSettings, setApiSettings, testApiConnection, optimizationStyle, setOptimizationStyle, themeMode, setThemeMode } = useAppStore();
+  const { apiSettings, setApiSettings, testApiConnection, optimizationStyle, setOptimizationStyle, themeMode, setThemeMode, auth, plans, quotaError, setQuotaError } = useAppStore();
   const [tab, setTab] = useState<SettingsTab>('ai');
   const [local, setLocal] = useState({ ...apiSettings });
   const [customMode, setCustomMode] = useState(
@@ -68,7 +69,12 @@ export function SettingsPage() {
   const [testing, setTesting] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [showPlans, setShowPlans] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const planName = plans.find((p) => p.id === auth.user?.plan)?.name ?? '免费版';
+  const usedWan = Math.round((auth.quota?.used ?? 0) / 10000);
+  const limitWan = Math.round((auth.quota?.limit ?? 0) / 10000);
 
   const isPresetUrl = !customMode && PRESET_PROVIDERS.some((p) => p.url === local.baseUrl);
 
@@ -133,8 +139,53 @@ export function SettingsPage() {
 
   return (
     <div className="flex gap-6 items-start">
-      {/* Left menu */}
-      <div className="w-52 shrink-0 rounded-xl border border-slate-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800/60">
+      {/* Left column: account card + menu */}
+      <div className="w-52 shrink-0 space-y-3">
+        {/* Account card */}
+        <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800/60">
+          {auth.user ? (
+            <>
+              <p className="text-xs text-slate-400 dark:text-neutral-500 mb-1">当前账户</p>
+              <p className="text-sm font-medium text-slate-900 dark:text-neutral-100 truncate mb-2">{auth.user.email}</p>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 px-2 py-0.5 rounded-full">
+                  {planName}
+                </span>
+                <button
+                  onClick={() => setShowPlans(true)}
+                  className="text-xs text-primary-600 dark:text-primary-300 hover:underline"
+                >
+                  {auth.user.plan === 'free' ? '升级' : '套餐'}
+                </button>
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-neutral-400">
+                <div className="flex justify-between mb-1">
+                  <span>本月额度</span>
+                  <span>{usedWan} 万 / {limitWan} 万 tokens</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-slate-100 dark:bg-neutral-700 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${usedWan >= limitWan ? 'bg-red-400' : 'bg-primary-500'}`}
+                    style={{ width: `${limitWan > 0 ? Math.min(100, (usedWan / limitWan) * 100) : 0}%` }}
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-slate-400 dark:text-neutral-500 mb-2">未登录</p>
+              <p className="text-xs text-slate-500 dark:text-neutral-400 mb-3 leading-relaxed">
+                登录后使用云端 AI 服务，无需自备 API Key
+              </p>
+              <Button size="sm" className="w-full" onClick={() => useAppStore.getState().setCurrentStep(-5)}>
+                登录 / 注册
+              </Button>
+            </>
+          )}
+        </div>
+
+        {/* Left menu */}
+        <div className="rounded-xl border border-slate-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800/60">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -149,6 +200,7 @@ export function SettingsPage() {
             {t.label}
           </button>
         ))}
+        </div>
       </div>
 
       {/* Right detail */}
@@ -359,6 +411,9 @@ export function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Plans dialog */}
+      <PlansDialog open={showPlans} onClose={() => setShowPlans(false)} />
     </div>
   );
 }
