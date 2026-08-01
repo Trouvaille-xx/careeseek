@@ -59,7 +59,7 @@ export function attachPaymentsRoutes(app: FastifyInstance): void {
         return reply.send({ status: 'expired' });
       }
       app.db.prepare("UPDATE payments SET status = 'paid', paid_at = ? WHERE id = ?").run(now, id);
-      activatePlan(app, row.id, row.plan);
+      activatePlan(app.db, row.id, row.plan);
       return reply.send({ status: 'paid' });
     }
 
