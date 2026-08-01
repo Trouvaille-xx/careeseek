@@ -1,4 +1,4 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -8,14 +8,14 @@
   }
 
   body {
-    @apply m-0 p-0;
+    @apply m-0 p-0 bg-white text-slate-900 dark:bg-neutral-950 dark:text-neutral-100;
     font-family: 'Noto Sans SC', system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
-    @apply bg-primary-100 text-primary-900;
+    @apply bg-primary-100 text-primary-900 dark:bg-neutral-600 dark:text-neutral-100;
   }
 }
 
@@ -36,6 +36,10 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: #e2e8f0;
     border-radius: 3px;
+  }
+
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #334155;
   }
 
   .animate-stagger-1 { animation-delay: 0.1s; }

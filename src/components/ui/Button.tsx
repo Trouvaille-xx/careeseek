@@ -1,6 +1,6 @@
-import React from 'react';
+﻿import React from 'react';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'outline';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger';
 type Size = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -12,9 +12,10 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<Variant, string> = {
   primary: 'bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800 shadow-sm',
-  secondary: 'bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300',
-  ghost: 'text-slate-600 hover:bg-slate-100 active:bg-slate-200',
-  outline: 'border border-slate-300 text-slate-700 hover:bg-slate-50 active:bg-slate-100',
+  secondary: 'bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300 dark:bg-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-600',
+  ghost: 'text-slate-600 hover:bg-slate-100 active:bg-slate-200 dark:text-neutral-300 dark:hover:bg-neutral-700/60 dark:active:bg-neutral-700',
+  outline: 'border border-slate-300 text-slate-700 hover:bg-slate-50 active:bg-slate-100 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-700/60',
+  danger: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800 shadow-sm',
 };
 
 const sizeStyles: Record<Size, string> = {

@@ -1,4 +1,5 @@
 import { useAppStore } from '@/stores/useAppStore';
+import { stripThinkTags } from '@/utils/text';
 
 const API_TIMEOUT_MS = 90000;
 const MAX_ATTEMPTS = 2;
@@ -92,11 +93,15 @@ export function stripCodeFences(text: string): string {
 }
 
 export function extractJSON(text: string): string {
-  const cleaned = stripCodeFences(text);
+  // 先剥掉思维链标签（<think>...</think> / ```think ... ```），它们不属于 JSON
+  const cleaned = stripCodeFences(stripThinkTags(text));
   try {
     JSON.parse(cleaned);
     return cleaned;
   } catch {
+    // 优先取最后一个 { 到文本末尾（JSON 通常在结尾，避免误取前置 think 内容里的花括号）
+    const tailMatch = cleaned.match(/\{[\s\S]*\}$/);
+    if (tailMatch) return tailMatch[0];
     const match = cleaned.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
     if (match) return match[0];
     throw new Error(`无法解析 LLM 响应为 JSON: ${cleaned.slice(0, 200)}`);

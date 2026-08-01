@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { TopNav } from './TopNav';
 import { Sidebar } from './Sidebar';
 import { StepProgressBar } from './StepProgressBar';
@@ -41,7 +41,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-white dark:bg-neutral-950">
       <TopNav />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onNewAnalysis={handleNewAnalysis} />
@@ -54,7 +54,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             />
           )}
           <main className="flex-1 overflow-y-auto scrollbar-thin">
-            <div className={currentStep === -1 ? 'w-full px-6 py-6' : 'max-w-6xl mx-auto px-8 py-8'}>
+            <div className={currentStep === -1 || currentStep === -4 ? 'w-full px-6 py-6' : 'max-w-6xl mx-auto px-8 py-8'}>
               <div className="animate-slide-up" key={currentStep}>
                 {children}
               </div>

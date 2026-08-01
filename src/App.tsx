@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { InputPage } from '@/features/input/InputPage';
@@ -13,9 +13,11 @@ import { AnalysisHomePage } from '@/features/input/AnalysisHomePage';
 import { ResumeLibraryPage } from '@/features/resume-library/ResumeLibraryPage';
 import { MockInterviewPage } from '@/features/interview/MockInterviewPage';
 import { ApplicationsPage } from '@/features/applications/ApplicationsPage';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SyncResumeDialog } from '@/features/resume-library/SyncResumeDialog';
 import { analysisService } from '@/services/analysisService';
 import { Button } from '@/components/ui/Button';
+import { applyTheme, watchSystemTheme } from '@/utils/theme';
 
 function App() {
   const {
@@ -32,6 +34,7 @@ function App() {
     setCurrentStep,
     setAnalysisStatus,
     setIsAnalyzing,
+    startAnalysis,
     setJdAnalysis,
     setDiagnosis,
     setMatchingRows,
@@ -42,7 +45,17 @@ function App() {
     setJdStreamText,
     resumeAnalysisId,
     setResumeAnalysisId,
+    themeMode,
   } = useAppStore();
+
+  useEffect(() => {
+    applyTheme(themeMode);
+    if (themeMode === 'system') {
+      return watchSystemTheme((dark) =>
+        document.documentElement.classList.toggle('dark', dark)
+      );
+    }
+  }, [themeMode]);
 
   const processingRef = useRef<Set<number>>(new Set());
   const [showSyncDialog, setShowSyncDialog] = useState(false);
@@ -82,16 +95,16 @@ function App() {
       processingRef.current.delete(2);
     }).catch((e) => {
       console.error('分析失败:', e);
-      setAnalysisStatus(2, 'idle');
+      setAnalysisStatus(2, 'error');
       processingRef.current.delete(2);
     });
   }, [analysisStatus[2], userInput, setJdAnalysis, setAnalysisStatus, setJdStreamText]);
 
   useEffect(() => {
-    if (analysisStatus[2] === 'done' && analysisStatus[3] === 'idle') {
+    if (analysisStatus[2] === 'done' && analysisStatus[3] === 'idle' && jdAnalysis !== null) {
       setAnalysisStatus(3, 'loading');
     }
-  }, [analysisStatus[2], analysisStatus[3], setAnalysisStatus]);
+  }, [analysisStatus[2], analysisStatus[3], jdAnalysis, setAnalysisStatus]);
 
   useEffect(() => {
     if (analysisStatus[3] !== 'loading') return;
@@ -105,16 +118,16 @@ function App() {
       processingRef.current.delete(3);
     }).catch((e) => {
       console.error('诊断失败:', e);
-      setAnalysisStatus(3, 'idle');
+      setAnalysisStatus(3, 'error');
       processingRef.current.delete(3);
     });
   }, [analysisStatus[3], userInput, jdAnalysis, setDiagnosis, setAnalysisStatus]);
 
   useEffect(() => {
-    if (analysisStatus[3] === 'done' && analysisStatus[4] === 'idle') {
+    if (analysisStatus[3] === 'done' && analysisStatus[4] === 'idle' && diagnosis !== null) {
       setAnalysisStatus(4, 'loading');
     }
-  }, [analysisStatus[3], analysisStatus[4], setAnalysisStatus]);
+  }, [analysisStatus[3], analysisStatus[4], diagnosis, setAnalysisStatus]);
 
   useEffect(() => {
     if (analysisStatus[4] !== 'loading') return;
@@ -128,16 +141,16 @@ function App() {
       processingRef.current.delete(4);
     }).catch((e) => {
       console.error('匹配分析失败:', e);
-      setAnalysisStatus(4, 'idle');
+      setAnalysisStatus(4, 'error');
       processingRef.current.delete(4);
     });
   }, [analysisStatus[4], userInput, jdAnalysis, diagnosis, setMatchingRows, setAnalysisStatus]);
 
   useEffect(() => {
-    if (analysisStatus[4] === 'done' && analysisStatus[5] === 'idle') {
+    if (analysisStatus[4] === 'done' && analysisStatus[5] === 'idle' && jdAnalysis !== null && diagnosis !== null) {
       setAnalysisStatus(5, 'loading');
     }
-  }, [analysisStatus[4], analysisStatus[5], setAnalysisStatus]);
+  }, [analysisStatus[4], analysisStatus[5], jdAnalysis, diagnosis, setAnalysisStatus]);
 
   useEffect(() => {
     if (analysisStatus[5] !== 'loading') return;
@@ -151,7 +164,7 @@ function App() {
       processingRef.current.delete(5);
     }).catch((e) => {
       console.error('生成追问失败:', e);
-      setAnalysisStatus(5, 'idle');
+      setAnalysisStatus(5, 'error');
       processingRef.current.delete(5);
     });
   }, [analysisStatus[5], userInput, jdAnalysis, diagnosis, matchingRows, setFollowUpQuestions, setAnalysisStatus]);
@@ -180,7 +193,7 @@ function App() {
       processingRef.current.delete(6);
     }).catch((e) => {
       console.error('优化失败:', e);
-      setAnalysisStatus(6, 'idle');
+      setAnalysisStatus(6, 'error');
       processingRef.current.delete(6);
     });
   }, [analysisStatus[6], userInput, jdAnalysis, diagnosis, matchingRows, followUpQuestions, optimizationStyle, setOptimizationItems, setAnalysisStatus]);
@@ -202,7 +215,7 @@ function App() {
       processingRef.current.delete(7);
     }).catch((e) => {
       console.error('生成最终简历失败:', e);
-      setAnalysisStatus(7, 'idle');
+      setAnalysisStatus(7, 'error');
       processingRef.current.delete(7);
     });
   }, [analysisStatus[7], userInput, optimizationItems, setFinalResume, setAnalysisStatus]);
@@ -225,7 +238,7 @@ function App() {
       processingRef.current.delete(8);
     }).catch((e) => {
       console.error('生成面试准备失败:', e);
-      setAnalysisStatus(8, 'idle');
+      setAnalysisStatus(8, 'error');
       processingRef.current.delete(8);
     });
   }, [analysisStatus[8], userInput, jdAnalysis, diagnosis, setInterviewPrep, setAnalysisStatus]);
@@ -255,7 +268,7 @@ function App() {
       optimizationItems: entry.optimizationItems,
       finalResume: entry.finalResume,
       interviewPrep: entry.interviewPrep,
-      currentStep: entry.currentStep,
+      currentStep: entry.currentStep >= 1 && entry.currentStep <= 8 ? entry.currentStep : 1,
     });
     setResumeAnalysisId(null);
   }, [resumeAnalysisId, setResumeAnalysisId]);
@@ -266,20 +279,24 @@ function App() {
     2: jdAnalysis !== null && analysisStatus[2] === 'done',
     3: diagnosis !== null && analysisStatus[3] === 'done',
     4: matchingRows.length > 0 && analysisStatus[4] === 'done',
-    5: followUpQuestions.some((q) => q.optimizedBullet.length > 0) && analysisStatus[5] === 'done',
+    5: followUpQuestions.some((q) => q.optimizedBullet.length > 0 || q.userAnswer.trim().length > 0) && analysisStatus[5] === 'done',
     6: optimizationItems.length > 0 && analysisStatus[6] === 'done',
     7: finalResume !== null && analysisStatus[7] === 'done',
     8: false,
   };
 
   const goNext = () => {
-    if (currentStep < 8 && stepReady[currentStep]) {
+    if (currentStep === 1) {
+      // 输入页的“下一步”直接启动 AI 分析（startAnalysis 会切到步骤 2）
+      startAnalysis();
+    } else if (currentStep < 8 && stepReady[currentStep]) {
       setCurrentStep(currentStep + 1);
     }
   };
 
   const renderPage = () => {
     switch (currentStep) {
+      case -4: return <SettingsPage />;
       case -3: return <ApplicationsPage />;
       case -2: return <MockInterviewPage />;
       case -1: return <ResumeLibraryPage />;
@@ -306,7 +323,7 @@ function App() {
 
       {/* Step footer with next button */}
       {isAnalysisStep && !isLastStep && (
-        <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-slate-200 mt-8">
+        <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-slate-200 mt-8 dark:bg-neutral-800 dark:border-neutral-700">
           <div className="max-w-6xl mx-auto px-8 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               {analysisStatus[currentStep] === 'loading' && (
@@ -319,13 +336,17 @@ function App() {
                 </span>
               )}
               {analysisStatus[currentStep] !== 'loading' && (
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-400 dark:text-neutral-400">
                   {ready
                     ? '已完成，可进入下一步'
                     : currentStep === 1
                     ? '请填写 JD 原文和简历内容'
                     : currentStep === 5
                     ? '请至少完成一个追问的优化表达'
+                    : analysisStatus[currentStep] === 'error'
+                    ? '当前步骤分析失败，请点击重试'
+                    : analysisStatus[currentStep] === 'idle'
+                    ? '请先在输入页面提交分析'
                     : '需等待当前步骤完成'}
                 </span>
               )}
@@ -342,7 +363,7 @@ function App() {
 
       {/* Step 8: return to home */}
       {isLastStep && analysisStatus[8] === 'done' && (
-        <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-slate-200 mt-8">
+        <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-slate-200 mt-8 dark:bg-neutral-800 dark:border-neutral-700">
           <div className="max-w-6xl mx-auto px-8 py-4 flex items-center justify-end">
             <Button variant="outline" onClick={() => setCurrentStep(0)}>
               返回首页

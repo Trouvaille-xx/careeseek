@@ -1,18 +1,16 @@
-import React, { useState } from 'react';
+﻿import React from 'react';
 import { useAppStore } from '@/stores/useAppStore';
-import { SettingsDialog } from './SettingsDialog';
+import { THEME_OPTIONS } from '@/utils/theme';
 
 interface SidebarProps {
   onNewAnalysis: () => void;
 }
 
 export function Sidebar({ onNewAnalysis }: SidebarProps) {
-  const { currentStep } = useAppStore();
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { currentStep, themeMode, setThemeMode } = useAppStore();
 
   return (
-    <>
-      <nav className="w-64 border-r border-slate-200 bg-white flex flex-col shrink-0">
+    <nav className="w-52 border-r border-slate-200 bg-white flex flex-col shrink-0 dark:border-neutral-800 dark:bg-neutral-950">
         {/* Menu items */}
         <div className="flex flex-col gap-0.5 p-3">
           <MenuItem
@@ -62,7 +60,26 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
         <div className="flex-1" />
 
         {/* Settings */}
-        <div className="p-3 border-t border-slate-100">
+        <div className="p-3 border-t border-slate-100 dark:border-neutral-700 flex flex-col gap-2">
+          <div className="px-3 flex items-center justify-between">
+            <span className="text-xs text-slate-400 dark:text-neutral-500">主题</span>
+          </div>
+          <div className="flex bg-slate-100 rounded-lg p-0.5 gap-0.5 dark:bg-neutral-700/60">
+            {THEME_OPTIONS.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setThemeMode(t.value)}
+                className={`flex-1 px-1 py-1.5 rounded-md text-xs transition-colors ${
+                  themeMode === t.value
+                    ? 'bg-white text-slate-900 font-medium shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                    : 'text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
           <MenuItem
             icon={
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -71,14 +88,11 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
               </svg>
             }
             label="设置"
-            active={false}
-            onClick={() => setSettingsOpen(true)}
+            active={currentStep === -4}
+            onClick={() => useAppStore.getState().setCurrentStep(-4)}
           />
         </div>
       </nav>
-
-      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-    </>
   );
 }
 
@@ -103,10 +117,10 @@ function MenuItem({
       disabled={disabled}
       className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-150 ${
         active
-          ? 'bg-primary-50 text-primary-600 font-medium'
+          ? 'bg-primary-50 text-primary-600 font-medium dark:bg-neutral-700 dark:text-neutral-100'
           : disabled
-          ? 'text-slate-300 cursor-not-allowed'
-          : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+          ? 'text-slate-300 cursor-not-allowed dark:text-neutral-600'
+          : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-neutral-400 dark:hover:bg-neutral-700/60 dark:hover:text-neutral-200'
       }`}
     >
       <span className="shrink-0">{icon}</span>

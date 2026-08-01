@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -100,39 +100,39 @@ export function MockInterviewPage() {
     return (
       <div className="animate-fade-in max-w-2xl mx-auto">
         <div className="text-center mb-10">
-          <div className="w-14 h-14 rounded-2xl bg-primary-100 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-7 h-7 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <div className="w-14 h-14 rounded-2xl bg-primary-100 dark:bg-neutral-700 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">模拟面试</h2>
-          <p className="text-sm text-slate-500">基于你的简历和岗位 JD，进行 AI 模拟面试</p>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-neutral-100 mb-2">模拟面试</h2>
+          <p className="text-sm text-slate-500 dark:text-neutral-400">基于你的简历和岗位 JD，进行 AI 模拟面试</p>
         </div>
 
         {!hasAnalysis && (
-          <Card padding="md" className="bg-amber-50 border-amber-200 mb-6">
+          <Card padding="md" className="bg-amber-50 dark:bg-amber-900/30 border-amber-200 mb-6">
             <p className="text-sm text-amber-800">请先完成简历分析流程，系统将基于分析结果生成面试内容。</p>
           </Card>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
           <button onClick={() => hasAnalysis && handleStart('real')} disabled={!hasAnalysis}
-            className="text-left bg-white rounded-2xl border-2 border-slate-200 hover:border-primary-400 p-6 transition-all disabled:opacity-50 disabled:cursor-not-allowed group">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-primary-50 flex items-center justify-center mb-3 transition-colors">
-              <svg className="w-5 h-5 text-slate-600 group-hover:text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" /></svg>
+            className="text-left bg-white dark:bg-neutral-800 rounded-2xl border-2 border-slate-200 dark:border-neutral-700 hover:border-primary-400 p-6 transition-all disabled:opacity-50 disabled:cursor-not-allowed group">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-neutral-700/60 group-hover:bg-primary-50 dark:group-hover:bg-slate-700 flex items-center justify-center mb-3 transition-colors">
+              <svg className="w-5 h-5 text-slate-600 dark:text-neutral-300 group-hover:text-primary-600 dark:group-hover:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" /></svg>
             </div>
-            <h3 className="text-sm font-semibold text-slate-900 mb-1">真实面试</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">模拟真实面试场景，面试官风格相对严厉。结束后生成完整面试报告。</p>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-neutral-100 mb-1">真实面试</h3>
+            <p className="text-xs text-slate-500 dark:text-neutral-400 leading-relaxed">模拟真实面试场景，面试官风格相对严厉。结束后生成完整面试报告。</p>
           </button>
 
           <button onClick={() => hasAnalysis && handleStart('learning')} disabled={!hasAnalysis}
-            className="text-left bg-white rounded-2xl border-2 border-slate-200 hover:border-primary-400 p-6 transition-all disabled:opacity-50 disabled:cursor-not-allowed group">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-primary-50 flex items-center justify-center mb-3 transition-colors">
-              <svg className="w-5 h-5 text-slate-600 group-hover:text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342" /></svg>
+            className="text-left bg-white dark:bg-neutral-800 rounded-2xl border-2 border-slate-200 dark:border-neutral-700 hover:border-primary-400 p-6 transition-all disabled:opacity-50 disabled:cursor-not-allowed group">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-neutral-700/60 group-hover:bg-primary-50 dark:group-hover:bg-slate-700 flex items-center justify-center mb-3 transition-colors">
+              <svg className="w-5 h-5 text-slate-600 dark:text-neutral-300 group-hover:text-primary-600 dark:group-hover:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342" /></svg>
             </div>
-            <h3 className="text-sm font-semibold text-slate-900 mb-1">学习模式</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">每轮对话后提供回答提示和评分，可重新回答。适合练习和准备。</p>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-neutral-100 mb-1">学习模式</h3>
+            <p className="text-xs text-slate-500 dark:text-neutral-400 leading-relaxed">每轮对话后提供回答提示和评分，可重新回答。适合练习和准备。</p>
           </button>
         </div>
       </div>
@@ -152,9 +152,9 @@ export function MockInterviewPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4 shrink-0">
           <div>
-            <span className="text-xs text-slate-400 font-medium">{mode === 'real' ? '真实面试' : '学习模式'}</span>
-            <span className="text-xs text-slate-300 mx-2">|</span>
-            <span className="text-xs text-slate-500">{totalRounds} 轮</span>
+            <span className="text-xs text-slate-400 dark:text-neutral-500 font-medium">{mode === 'real' ? '真实面试' : '学习模式'}</span>
+            <span className="text-xs text-slate-300 dark:text-neutral-600 mx-2">|</span>
+            <span className="text-xs text-slate-500 dark:text-neutral-400">{totalRounds} 轮</span>
           </div>
           <div className="flex gap-2">
             {canFinish && (
@@ -178,21 +178,21 @@ export function MockInterviewPage() {
                 <div className={`max-w-[75%] ${isUser ? 'order-1' : 'order-1'}`}>
                   {!isUser && !isSystem && (
                     <div className="flex items-center gap-2 mb-1.5">
-                      <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center">
-                        <svg className="w-3.5 h-3.5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
+                      <div className="w-6 h-6 rounded-full bg-primary-100 dark:bg-neutral-700 flex items-center justify-center">
+                        <svg className="w-3.5 h-3.5 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /></svg>
                       </div>
-                      <span className="text-xs font-medium text-slate-500">面试官</span>
-                      <span className="text-[10px] text-slate-300">第 {Math.floor(msg.round)} 问</span>
+                      <span className="text-xs font-medium text-slate-500 dark:text-neutral-400">面试官</span>
+                      <span className="text-[10px] text-slate-300 dark:text-neutral-600">第 {Math.floor(msg.round)} 问</span>
                     </div>
                   )}
                   <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    isUser ? 'bg-primary-600 text-white' : isSystem ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-800'
+                    isUser ? 'bg-primary-600 text-white' : isSystem ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 border border-emerald-200' : 'bg-slate-100 dark:bg-neutral-700/60 text-slate-800 dark:text-neutral-200'
                   }`}>
                     {msg.content.split('\n').map((line, i) => <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>)}
                   </div>
                   {mode === 'learning' && msg.role === 'assistant' && msg.tip && !isSystem && (
-                    <div className="mt-1.5 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
-                      <p className="text-[11px] text-amber-700 leading-relaxed">提示：{msg.tip}</p>
+                    <div className="mt-1.5 px-3 py-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 rounded-xl">
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">提示：{msg.tip}</p>
                     </div>
                   )}
                 </div>
@@ -212,7 +212,7 @@ export function MockInterviewPage() {
         {/* Input */}
         <div className="mt-4 flex gap-3 shrink-0">
           <input
-            className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
+            className="flex-1 rounded-xl border border-slate-300 bg-white dark:bg-neutral-800 px-4 py-3 text-sm text-slate-900 dark:text-neutral-100 placeholder:text-slate-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all"
             placeholder="输入你的回答..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -237,29 +237,29 @@ export function MockInterviewPage() {
             report.overallScore >= 75 ? 'bg-emerald-100' : report.overallScore >= 60 ? 'bg-amber-100' : 'bg-red-100'
           }`}>
             <span className={`text-2xl font-bold ${
-              report.overallScore >= 75 ? 'text-emerald-700' : report.overallScore >= 60 ? 'text-amber-700' : 'text-red-700'
+              report.overallScore >= 75 ? 'text-emerald-700 dark:text-emerald-300' : report.overallScore >= 60 ? 'text-amber-700 dark:text-amber-300' : 'text-red-700 dark:text-red-300'
             }`}>{report.overallScore}</span>
           </div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-1">面试报告</h2>
-          <p className="text-sm text-slate-500">{report.summary}</p>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-neutral-100 mb-1">面试报告</h2>
+          <p className="text-sm text-slate-500 dark:text-neutral-400">{report.summary}</p>
         </div>
 
         {/* Score breakdown */}
         <Card padding="lg" className="mb-6">
-          <h3 className="text-sm font-semibold text-slate-900 mb-4">各轮评分</h3>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-neutral-100 mb-4">各轮评分</h3>
           <div className="space-y-3">
             {report.roundScores.map((rs) => (
               <div key={rs.round}>
-                <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+                <div className="flex items-center justify-between text-xs text-slate-600 dark:text-neutral-300 mb-1">
                   <span>第 {rs.round} 轮</span>
                   <span className="font-semibold">{rs.score} 分</span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-slate-100 dark:bg-neutral-700/60 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-all duration-500 ${
                     rs.score >= 75 ? 'bg-emerald-500' : rs.score >= 60 ? 'bg-amber-500' : 'bg-red-500'
                   }`} style={{ width: `${rs.score}%` }} />
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">{rs.comment}</p>
+                <p className="text-[11px] text-slate-400 dark:text-neutral-500 mt-0.5">{rs.comment}</p>
               </div>
             ))}
           </div>
@@ -267,11 +267,11 @@ export function MockInterviewPage() {
 
         {/* Strengths */}
         <Card padding="lg" className="mb-6">
-          <h3 className="text-sm font-semibold text-slate-900 mb-3">表现出色的地方</h3>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-neutral-100 mb-3">表现出色的地方</h3>
           <ul className="space-y-2">
             {report.strengths.map((s, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
-                <svg className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+              <li key={i} className="flex items-start gap-2 text-sm text-slate-700 dark:text-neutral-200">
+                <svg className="w-4 h-4 text-emerald-500 dark:text-emerald-300 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                 {s}
               </li>
             ))}
@@ -280,10 +280,10 @@ export function MockInterviewPage() {
 
         {/* Improvements */}
         <Card padding="lg" className="mb-6">
-          <h3 className="text-sm font-semibold text-slate-900 mb-3">需要改进的地方</h3>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-neutral-100 mb-3">需要改进的地方</h3>
           <ul className="space-y-2">
             {report.improvements.map((s, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+              <li key={i} className="flex items-start gap-2 text-sm text-slate-700 dark:text-neutral-200">
                 <svg className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" /></svg>
                 {s}
               </li>

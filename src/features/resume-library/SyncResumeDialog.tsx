@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
-import type { EducationEntry, WorkExperienceEntry, ProjectEntry, CoreSkillEntry } from '@/types';
+import type { EducationEntry, WorkExperienceEntry, ProjectEntry, CoreSkillEntry, ResumeBuilderDraft } from '@/types';
 
 function genId() { return Math.random().toString(36).slice(2, 10); }
 
@@ -97,7 +97,9 @@ export function SyncResumeDialog({ open, onClose }: { open: boolean; onClose: ()
       const parts = firstLine.split('|');
       const entry: WorkExperienceEntry = {
         id: genId(), company: parts[0]?.trim() || '', position: parts[1]?.trim() || '',
-        startDate: '', endDate: '', description: item.content, status: 'draft',
+        startDate: '', endDate: '',
+        responsibilities: lines.map((l) => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean),
+        status: 'draft',
       };
       addWorkExperience(entry);
     });
@@ -125,17 +127,59 @@ export function SyncResumeDialog({ open, onClose }: { open: boolean; onClose: ()
     setSynced(true);
   };
 
+  const handleSyncToBuilder = () => {
+    const store = useAppStore.getState();
+    const blank = { name: '', phone: '', email: '', city: '', jobIntent: '', website: '', summary: '' };
+    const draft: ResumeBuilderDraft = {
+      id: `draft-${Math.random().toString(36).slice(2, 10)}`,
+      name: 'AI 优化简历',
+      updatedAt: Date.now(),
+      basicInfo: store.resumeLibrary.basicInfo ? { ...store.resumeLibrary.basicInfo } : blank,
+      sectionOrder: ['education', 'workExperience', 'projects', 'coreSkills', 'personalStrengths'],
+      visibleSections: { education: true, workExperience: true, projects: true, coreSkills: true, personalStrengths: true },
+      template: 'classic',
+      accentColor: 'slate',
+      fontSize: 'medium',
+      education: parsed.education.filter((i) => i.checked).map((item) => ({
+        id: genId(), school: item.content.split(' ')[0] || '', major: '', degree: '',
+        startDate: '', endDate: '', description: item.content, status: 'approved',
+      })),
+      workExperience: parsed.workExperience.filter((i) => i.checked).map((item) => {
+        const lines = item.content.split('\n');
+        const parts = (lines[0] || '').split('|');
+        return {
+          id: genId(), company: parts[0]?.trim() || '', position: parts[1]?.trim() || '',
+          startDate: '', endDate: '',
+          responsibilities: lines.map((l) => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean),
+          status: 'approved' as const,
+        };
+      }),
+      projects: parsed.projects.filter((i) => i.checked).map((item) => ({
+        id: genId(), name: item.content.split('\n')[0]?.slice(0, 30) || '', role: '',
+        startDate: '', endDate: '', description: item.content, status: 'approved',
+      })),
+      coreSkills: parsed.coreSkills.filter((i) => i.checked).map((item) => ({
+        id: genId(), category: item.content.split('：')[0]?.split(':')[0]?.trim() || '技能',
+        skills: item.content, status: 'approved',
+      })),
+      personalStrengths: [],
+    };
+    store.importBuilderDraft(draft);
+    store.setCurrentStep(-1);
+    onClose();
+  };
+
   if (!open) return null;
 
   const hasData = parsed.education.length > 0 || parsed.workExperience.length > 0 || parsed.projects.length > 0 || parsed.coreSkills.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg mx-4 max-h-[80vh] flex flex-col animate-slide-up">
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg mx-4 max-h-[80vh] flex flex-col animate-slide-up dark:bg-neutral-800 dark:border-neutral-700">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-0 shrink-0">
-          <h2 className="text-base font-semibold text-slate-900">同步到简历库</h2>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-neutral-100">同步到简历库</h2>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:text-neutral-500 dark:hover:text-neutral-300 dark:hover:bg-neutral-700">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -146,20 +190,20 @@ export function SyncResumeDialog({ open, onClose }: { open: boolean; onClose: ()
         <div className="p-6 space-y-5 overflow-y-auto flex-1">
           {synced ? (
             <div className="text-center py-6">
-              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3 dark:bg-emerald-900/40">
+                <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-slate-900 mb-1">已同步到简历库</p>
-              <p className="text-xs text-slate-500">同步内容为草稿状态，请在简历库中审核确认</p>
+              <p className="text-sm font-medium text-slate-900 mb-1 dark:text-neutral-100">已同步到简历库</p>
+              <p className="text-xs text-slate-500 dark:text-neutral-400">同步内容为草稿状态，请在简历库中审核确认</p>
               <Button className="mt-4" size="sm" onClick={onClose}>我知道了</Button>
             </div>
           ) : !hasData ? (
-            <div className="text-center py-6 text-sm text-slate-400">暂无可同步的简历数据</div>
+            <div className="text-center py-6 text-sm text-slate-400 dark:text-neutral-500">暂无可同步的简历数据</div>
           ) : (
             <>
-              <p className="text-sm text-slate-600">检测到优化后的简历内容，是否将以下数据同步到简历库？同步后将保存为草稿，可前往简历库审核编辑。</p>
+              <p className="text-sm text-slate-600 dark:text-neutral-300">检测到优化后的简历内容，是否将以下数据同步到简历库？同步后将保存为草稿，可前往简历库审核编辑。</p>
 
               {/* Education */}
               {parsed.education.length > 0 && (
@@ -204,6 +248,7 @@ export function SyncResumeDialog({ open, onClose }: { open: boolean; onClose: ()
         {!synced && hasData && (
           <div className="flex items-center justify-end gap-3 px-6 pb-6 shrink-0">
             <Button variant="ghost" size="md" onClick={onClose}>跳过</Button>
+            <Button variant="outline" size="md" onClick={handleSyncToBuilder}>同步到简历制作</Button>
             <Button size="md" onClick={handleSync}>同步到简历库</Button>
           </div>
         )}
@@ -216,8 +261,8 @@ function SectionPreview({ title, count, children }: { title: string; count: numb
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-sm font-medium text-slate-900">{title}</h4>
-        <span className="text-xs text-slate-400">{count} 项</span>
+        <h4 className="text-sm font-medium text-slate-900 dark:text-neutral-100">{title}</h4>
+        <span className="text-xs text-slate-400 dark:text-neutral-500">{count} 项</span>
       </div>
       <div className="space-y-2">{children}</div>
     </div>
@@ -226,9 +271,9 @@ function SectionPreview({ title, count, children }: { title: string; count: numb
 
 function PreviewItem({ checked, content, onToggle }: { checked: boolean; content: string; onToggle: () => void }) {
   return (
-    <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer">
-      <input type="checkbox" checked={checked} onChange={onToggle} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500/30" />
-      <span className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap line-clamp-3">{content}</span>
+    <label className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer dark:border-neutral-700 dark:hover:border-neutral-600">
+      <input type="checkbox" checked={checked} onChange={onToggle} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500/30 dark:border-neutral-600" />
+      <span className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap line-clamp-3 dark:text-neutral-300">{content}</span>
     </label>
   );
 }

@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+﻿import { useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Card } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
 import { Badge } from '@/components/ui/Badge';
 import { PageLoading } from '@/components/ui/Spinner';
+import { AnalysisError } from '@/components/ui/AnalysisError';
 
 function getScoreVariant(score: number): 'success' | 'warning' | 'danger' | 'default' {
   if (score >= 80) return 'success';
@@ -13,17 +14,17 @@ function getScoreVariant(score: number): 'success' | 'warning' | 'danger' | 'def
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return 'text-emerald-600';
-  if (score >= 60) return 'text-amber-600';
-  if (score >= 40) return 'text-orange-600';
-  return 'text-red-600';
+  if (score >= 80) return 'text-emerald-600 dark:text-emerald-300';
+  if (score >= 60) return 'text-amber-600 dark:text-amber-300';
+  if (score >= 40) return 'text-orange-600 dark:text-orange-300';
+  return 'text-red-600 dark:text-red-300';
 }
 
 function getScoreBg(score: number): string {
-  if (score >= 80) return 'bg-emerald-50 border-emerald-200';
-  if (score >= 60) return 'bg-amber-50 border-amber-200';
-  if (score >= 40) return 'bg-orange-50 border-orange-200';
-  return 'bg-red-50 border-red-200';
+  if (score >= 80) return 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200';
+  if (score >= 60) return 'bg-amber-50 dark:bg-amber-900/30 border-amber-200';
+  if (score >= 40) return 'bg-orange-50 dark:bg-orange-900/30 border-orange-200';
+  return 'bg-red-50 dark:bg-red-900/30 border-red-200';
 }
 
 export function DiagnosisPage() {
@@ -34,9 +35,13 @@ export function DiagnosisPage() {
     return <PageLoading text="AI 正在诊断简历..." />;
   }
 
+  if (status === 'error') {
+    return <AnalysisError step={3} />;
+  }
+
   if (!diagnosis) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-400 animate-fade-in">
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-neutral-500 animate-fade-in">
         <svg className="w-12 h-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
@@ -51,7 +56,7 @@ export function DiagnosisPage() {
       {/* 总体评分 */}
       <Card padding="lg">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 flex items-center gap-2">
             <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
             综合评分
           </h3>
@@ -59,7 +64,7 @@ export function DiagnosisPage() {
             <span className={`text-2xl font-bold ${getScoreColor(diagnosis.overallScore)}`}>
               {diagnosis.overallScore}
             </span>
-            <span className="text-xs text-slate-400 ml-1">/ 100</span>
+            <span className="text-xs text-slate-400 dark:text-neutral-500 ml-1">/ 100</span>
           </div>
         </div>
         <Progress
@@ -69,7 +74,7 @@ export function DiagnosisPage() {
           variant={getScoreVariant(diagnosis.overallScore)}
           className="mb-2"
         />
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-slate-400 dark:text-neutral-500 mt-1">
           {diagnosis.overallScore >= 80
             ? '整体表现优秀，简历与目标岗位匹配度较高'
             : diagnosis.overallScore >= 60
@@ -80,7 +85,7 @@ export function DiagnosisPage() {
 
       {/* 各维度评分 */}
       <Card padding="lg">
-        <h3 className="text-base font-semibold text-slate-900 mb-5 flex items-center gap-2">
+        <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-5 flex items-center gap-2">
           <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
           维度评分
         </h3>
@@ -93,7 +98,7 @@ export function DiagnosisPage() {
             >
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-700">{dim.name}</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-neutral-200">{dim.name}</span>
                   <span className={`text-xs font-semibold ${getScoreColor(dim.score)}`}>
                     {dim.score}
                   </span>
@@ -107,7 +112,7 @@ export function DiagnosisPage() {
                 size="sm"
                 variant={getScoreVariant(dim.score)}
               />
-              <p className="text-xs text-slate-400 mt-1.5">{dim.reason}</p>
+              <p className="text-xs text-slate-400 dark:text-neutral-500 mt-1.5">{dim.reason}</p>
             </div>
           ))}
         </div>
@@ -118,11 +123,11 @@ export function DiagnosisPage() {
         <Card padding="lg">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 flex items-center gap-2">
                 <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
                 ATS 机器可读性
               </h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-400 dark:text-neutral-500 mt-1">
                 考察简历能否被招聘系统自动解析（关键词、结构化、版式）
               </p>
             </div>
@@ -130,7 +135,7 @@ export function DiagnosisPage() {
               <span className={`text-2xl font-bold ${getScoreColor(diagnosis.atsScore)}`}>
                 {diagnosis.atsScore}
               </span>
-              <span className="text-xs text-slate-400 ml-1">/ 100</span>
+              <span className="text-xs text-slate-400 dark:text-neutral-500 ml-1">/ 100</span>
             </div>
           </div>
           <Progress
@@ -145,13 +150,13 @@ export function DiagnosisPage() {
               {diagnosis.atsIssues.map((issue, idx) => (
                 <li
                   key={idx}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 animate-fade-in"
+                  className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-neutral-700/50 border border-slate-200 dark:border-neutral-700 animate-fade-in"
                   style={{ animationDelay: `${idx * 80}ms` }}
                 >
-                  <span className="mt-0.5 w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
+                  <span className="mt-0.5 w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0 dark:bg-neutral-700 dark:text-neutral-300">
                     {idx + 1}
                   </span>
-                  <span className="text-sm text-slate-700">{issue}</span>
+                  <span className="text-sm text-slate-700 dark:text-neutral-200">{issue}</span>
                 </li>
               ))}
             </ul>
@@ -161,7 +166,7 @@ export function DiagnosisPage() {
 
       {/* 优先修复项 */}
       <Card padding="lg">
-        <h3 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
           <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
           优先修复建议
         </h3>
@@ -169,13 +174,13 @@ export function DiagnosisPage() {
           {diagnosis.priorityFixes.map((fix, idx) => (
             <li
               key={idx}
-              className="flex items-start gap-3 p-3 rounded-lg bg-orange-50 border border-orange-100 animate-fade-in"
+              className="flex items-start gap-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/30 border border-orange-100 animate-fade-in"
               style={{ animationDelay: `${idx * 100}ms` }}
             >
-              <span className="mt-0.5 w-5 h-5 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs font-bold shrink-0">
+              <span className="mt-0.5 w-5 h-5 rounded-full bg-orange-100 text-orange-600 dark:text-orange-300 flex items-center justify-center text-xs font-bold shrink-0">
                 {idx + 1}
               </span>
-              <span className="text-sm text-slate-700">{fix}</span>
+              <span className="text-sm text-slate-700 dark:text-neutral-200">{fix}</span>
             </li>
           ))}
         </ul>

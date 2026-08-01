@@ -68,6 +68,8 @@ export interface OptimizationItem {
   section: string;
   original: string;
   optimized: string;
+  /** AI 生成的原始优化文本（用户手动编辑后用于"恢复 AI 原文"） */
+  aiOptimized?: string;
   reason: string;
   riskNote?: string;
 }
@@ -101,7 +103,7 @@ export interface InterviewPrep {
 
 // ============ Step Status ============
 export type StepStatus = 'locked' | 'available' | 'loading' | 'completed';
-export type AnalysisStatus = 'idle' | 'loading' | 'done';
+export type AnalysisStatus = 'idle' | 'loading' | 'done' | 'error';
 
 export interface StepInfo {
   id: number;
@@ -174,7 +176,10 @@ export interface WorkExperienceEntry {
   position: string;
   startDate: string;
   endDate: string;
-  description: string;
+  /** 工作职责与成就，每项一条，按列表渲染 */
+  responsibilities: string[];
+  /** 旧数据遗留字段：迁后留作空读取，新数据不再写入；导出 PDF 时合并到 responsibilities */
+  description?: string;
   status: 'draft' | 'approved';
 }
 
@@ -213,6 +218,36 @@ export interface PersonalStrengthEntry {
 
 export interface ResumeLibrary {
   basicInfo: BasicInfoEntry | null;
+  education: EducationEntry[];
+  workExperience: WorkExperienceEntry[];
+  projects: ProjectEntry[];
+  coreSkills: CoreSkillEntry[];
+  personalStrengths: PersonalStrengthEntry[];
+}
+
+// ============ Resume Builder (简历制作) ============
+export type BuilderSectionKey = 'education' | 'workExperience' | 'projects' | 'coreSkills' | 'personalStrengths';
+
+/** 内置排版模板 */
+export type BuilderTemplate = 'classic' | 'sidebar' | 'header' | 'minimal';
+/** 主题色 */
+export type AccentColor = 'slate' | 'blue' | 'green' | 'red' | 'violet';
+
+export interface ResumeBuilderDraft {
+  id: string;
+  /** 简历名称（列表展示用） */
+  name: string;
+  updatedAt: number;
+  basicInfo: BasicInfoEntry;
+  /** 各 section 的排版顺序（上移/下移调整） */
+  sectionOrder: BuilderSectionKey[];
+  /** 是否在简历中显示该 section */
+  visibleSections: Record<BuilderSectionKey, boolean>;
+  /** 内置排版模板 */
+  template: BuilderTemplate;
+  /** 主题色 */
+  accentColor: AccentColor;
+  fontSize: 'small' | 'medium' | 'large';
   education: EducationEntry[];
   workExperience: WorkExperienceEntry[];
   projects: ProjectEntry[];

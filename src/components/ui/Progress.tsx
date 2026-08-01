@@ -34,14 +34,14 @@ export function Progress({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <div className={`flex-1 bg-slate-100 rounded-full overflow-hidden ${sizeHeights[size]}`}>
+      <div className={`flex-1 bg-slate-100 rounded-full overflow-hidden dark:bg-neutral-800 ${sizeHeights[size]}`}>
         <div
           className={`${sizeHeights[size]} ${variantColors[variant]} rounded-full transition-all duration-500 ease-out`}
           style={{ width: `${pct}%` }}
         />
       </div>
       {showLabel && (
-        <span className="text-sm font-semibold text-slate-700 tabular-nums min-w-[3ch] text-right">
+        <span className="text-sm font-semibold text-slate-700 tabular-nums min-w-[3ch] text-right dark:text-neutral-300">
           {Math.round(pct)}
         </span>
       )}

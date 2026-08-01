@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 
 interface CardProps {
   children: React.ReactNode;
@@ -16,7 +16,7 @@ const paddings = {
 
 export function Card({ children, className = '', padding = 'md', style }: CardProps) {
   return (
-    <div className={`bg-white rounded-xl border border-slate-200 shadow-sm ${paddings[padding]} ${className}`} style={style}>
+    <div className={`bg-white rounded-xl border border-slate-200 shadow-sm dark:bg-neutral-800 dark:border-neutral-700 ${paddings[padding]} ${className}`} style={style}>
       {children}
     </div>
   );

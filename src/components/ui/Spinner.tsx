@@ -19,7 +19,7 @@ const TIPS = [
 
 export function Spinner({ className = '' }: { className?: string }) {
   return (
-    <svg className={`animate-spin h-5 w-5 text-primary-600 ${className}`} viewBox="0 0 24 24" fill="none">
+    <svg className={`animate-spin h-5 w-5 text-primary-600 dark:text-neutral-400 ${className}`} viewBox="0 0 24 24" fill="none">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
@@ -47,15 +47,15 @@ export function PageLoading({ text = 'AI 分析中' }: { text?: string }) {
         <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary-500 rounded-full animate-ping" />
       </div>
       <div className="flex items-center gap-1">
-        <p className="text-sm text-slate-500">{text}</p>
+        <p className="text-sm text-slate-500 dark:text-neutral-400">{text}</p>
         <span className="inline-flex">
-          <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce ml-0.5" style={{ animationDelay: '150ms' }} />
-          <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce ml-0.5" style={{ animationDelay: '300ms' }} />
+          <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce dark:bg-neutral-600" style={{ animationDelay: '0ms' }} />
+          <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce ml-0.5 dark:bg-neutral-600" style={{ animationDelay: '150ms' }} />
+          <span className="w-1 h-1 bg-slate-400 rounded-full animate-bounce ml-0.5 dark:bg-neutral-600" style={{ animationDelay: '300ms' }} />
         </span>
       </div>
-      <div className="max-w-sm text-center mt-4 px-6 py-3 bg-slate-50 rounded-xl border border-slate-100 animate-fade-in">
-        <p className="text-xs text-slate-500 leading-relaxed">{tip}</p>
+      <div className="max-w-sm text-center mt-4 px-6 py-3 bg-slate-50 rounded-xl border border-slate-100 animate-fade-in dark:bg-neutral-800/60 dark:border-neutral-700/60">
+        <p className="text-xs text-slate-500 leading-relaxed dark:text-neutral-400">{tip}</p>
       </div>
     </div>
   );
@@ -65,12 +65,12 @@ export function SectionLoading({ text = '加载中...' }: { text?: string }) {
   const tip = useRotatingTip();
 
   return (
-    <div className="flex flex-col items-center gap-3 py-8 text-slate-400 animate-fade-in">
+    <div className="flex flex-col items-center gap-3 py-8 text-slate-400 animate-fade-in dark:text-neutral-500">
       <div className="flex items-center gap-3">
         <Spinner className="h-4 w-4" />
         <span className="text-sm">{text}</span>
       </div>
-      <p className="text-[11px] text-slate-400 max-w-md text-center">{tip}</p>
+      <p className="text-[11px] text-slate-400 max-w-md text-center dark:text-neutral-500">{tip}</p>
     </div>
   );
 }

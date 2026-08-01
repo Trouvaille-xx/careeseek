@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -21,6 +22,20 @@ export default {
           700: '#1a1a1a',
           800: '#121212',
           900: '#0a0a0a',
+        },
+        // 深色模式下使用的 neutral 色板（浅色模式不使用 neutral，仅影响 dark: 变体）
+        neutral: {
+          50: '#fafafa',
+          100: '#f4f4f5',
+          200: '#e4e4e7',
+          300: '#d4d4d8',
+          400: '#a1a1aa',
+          500: '#71717a',
+          600: '#52525b',
+          700: '#3f3f46',
+          800: '#1f1f23',
+          900: '#141416',
+          950: '#0b0b0d',
         },
       },
       animation: {

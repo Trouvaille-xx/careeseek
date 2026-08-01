@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+﻿import { useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -75,17 +75,17 @@ export function InputPage() {
   return (
     <div className="space-6 animate-fade-in">
       {/* 示例数据提示 */}
-      <Card padding="md" className="bg-primary-50/50 border-primary-100 mb-6">
+      <Card padding="md" className="bg-primary-50/50 dark:bg-neutral-700/50 border-primary-100 mb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-neutral-700 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-primary-800">快速体验</p>
-              <p className="text-xs text-primary-600">点击下方按钮加载示例数据，快速体验完整流程</p>
+              <p className="text-sm font-medium text-primary-800 dark:text-primary-200">快速体验</p>
+              <p className="text-xs text-primary-600 dark:text-primary-300">点击下方按钮加载示例数据，快速体验完整流程</p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={loadSampleData}>
@@ -100,7 +100,7 @@ export function InputPage() {
         <div className="flex flex-col gap-6 w-1/2 shrink-0">
           {/* 基本信息 */}
           <Card padding="lg">
-            <h3 className="text-base font-semibold text-slate-900 mb-5 flex items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-5 flex items-center gap-2">
               <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
               基本信息
             </h3>
@@ -118,7 +118,7 @@ export function InputPage() {
                 onChange={(e) => handleChange('industry', e.target.value)}
               />
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-slate-700">公司类型</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-neutral-200">公司类型</label>
                 <div className="flex flex-wrap gap-2">
                   {COMPANY_TYPES.map((t) => (
                     <button
@@ -127,8 +127,8 @@ export function InputPage() {
                       onClick={() => handleChange('companyType', t)}
                       className={`px-3 py-1.5 text-xs rounded-lg border transition-all duration-150 ${
                         userInput.companyType === t
-                          ? 'border-primary-500 bg-primary-50 text-primary-700 font-medium'
-                          : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                          ? 'border-primary-500 bg-primary-50 dark:bg-neutral-700 text-primary-700 dark:text-primary-300 font-medium'
+                          : 'border-slate-200 dark:border-neutral-700 text-slate-500 dark:text-neutral-400 hover:border-slate-300 dark:hover:border-neutral-600 hover:text-slate-700 dark:hover:text-neutral-200'
                       }`}
                     >
                       {t}
@@ -137,7 +137,7 @@ export function InputPage() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-slate-700">求职阶段</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-neutral-200">求职阶段</label>
                 <div className="flex flex-wrap gap-2">
                   {STAGES.map((s) => (
                     <button
@@ -146,8 +146,8 @@ export function InputPage() {
                       onClick={() => handleChange('careerStage', s)}
                       className={`px-3 py-1.5 text-xs rounded-lg border transition-all duration-150 ${
                         userInput.careerStage === s
-                          ? 'border-primary-500 bg-primary-50 text-primary-700 font-medium'
-                          : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                          ? 'border-primary-500 bg-primary-50 dark:bg-neutral-700 text-primary-700 dark:text-primary-300 font-medium'
+                          : 'border-slate-200 dark:border-neutral-700 text-slate-500 dark:text-neutral-400 hover:border-slate-300 dark:hover:border-neutral-600 hover:text-slate-700 dark:hover:text-neutral-200'
                       }`}
                     >
                       {s}
@@ -166,10 +166,10 @@ export function InputPage() {
 
           {/* 补充信息 */}
           <Card padding="lg">
-            <h3 className="text-base font-semibold text-slate-900 mb-5 flex items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-5 flex items-center gap-2">
               <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
               补充信息
-              <span className="text-xs text-slate-400 font-normal">（选填）</span>
+              <span className="text-xs text-slate-400 dark:text-neutral-500 font-normal">（选填）</span>
             </h3>
             <Textarea
               label="补充信息"
@@ -185,7 +185,7 @@ export function InputPage() {
         <div className="flex flex-col gap-6 flex-1 min-w-0">
           {/* JD 原文 */}
           <Card padding="lg">
-            <h3 className="text-base font-semibold text-slate-900 mb-5 flex items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-5 flex items-center gap-2">
               <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
               职位描述（JD）
             </h3>
@@ -211,7 +211,7 @@ export function InputPage() {
 
           {/* 原始简历 */}
           <Card padding="lg">
-            <h3 className="text-base font-semibold text-slate-900 mb-5 flex items-center gap-2">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-5 flex items-center gap-2">
               <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
               简历内容
             </h3>

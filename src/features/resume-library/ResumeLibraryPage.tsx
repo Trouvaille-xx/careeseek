@@ -1,8 +1,10 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
 import { MonthPicker } from '@/components/ui/MonthPicker';
+import { ResponsibilitiesEditor } from '@/components/ui/ResponsibilitiesEditor';
+import { BuilderListView, ResumeBuilderView } from '@/features/resume-builder/ResumeBuilderPage';
 import type { EducationEntry, WorkExperienceEntry, ProjectEntry, CoreSkillEntry, BasicInfoEntry, PersonalStrengthEntry } from '@/types';
 
 function genId() { return Math.random().toString(36).slice(2, 10); }
@@ -10,7 +12,7 @@ function genId() { return Math.random().toString(36).slice(2, 10); }
 type ModuleKey = 'basicInfo' | 'education' | 'personalStrengths' | 'workExperience' | 'projects' | 'coreSkills';
 
 const emptyEdu = (): EducationEntry => ({ id: genId(), school: '', major: '', degree: '', startDate: '', endDate: '', description: '', status: 'approved' });
-const emptyWork = (): WorkExperienceEntry => ({ id: genId(), company: '', position: '', startDate: '', endDate: '', description: '', status: 'approved' });
+const emptyWork = (): WorkExperienceEntry => ({ id: genId(), company: '', position: '', startDate: '', endDate: '', responsibilities: [], status: 'approved' });
 const emptyProj = (): ProjectEntry => ({ id: genId(), name: '', role: '', startDate: '', endDate: '', description: '', status: 'approved' });
 const emptySkill = (): CoreSkillEntry => ({ id: genId(), category: '', skills: '', status: 'approved' });
 const emptyStrength = (): PersonalStrengthEntry => ({ id: genId(), content: '', status: 'approved' });
@@ -26,6 +28,53 @@ const MODULES: { key: ModuleKey; title: string; desc: string; icon: React.ReactN
 ];
 
 export function ResumeLibraryPage() {
+  const { resumeLibraryTab, setResumeLibraryTab, builderActiveId, resumeBuilder } = useAppStore();
+  const editing = resumeLibraryTab === 'build' && !!builderActiveId && !!resumeBuilder;
+  return (
+    <div className="animate-fade-in">
+      {/* Tabs */}
+      <div className="flex items-center gap-1 mb-6">
+        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 dark:bg-neutral-800">
+          <TabButton active={resumeLibraryTab === 'manage'} onClick={() => setResumeLibraryTab('manage')} icon={<ManageIcon />} label="简历管理" />
+          <TabButton active={resumeLibraryTab === 'build'} onClick={() => setResumeLibraryTab('build')} icon={<BuildIcon />} label="简历制作" />
+        </div>
+      </div>
+      {resumeLibraryTab === 'manage' ? <ManageView /> : (editing ? <ResumeBuilderView /> : <BuilderListView />)}
+    </div>
+  );
+}
+
+function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+        active ? 'bg-white shadow-sm text-slate-900 font-medium dark:bg-neutral-700 dark:text-neutral-100' : 'text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+      }`}
+    >
+      <span className={active ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400'}>{icon}</span>
+      {label}
+    </button>
+  );
+}
+
+function ManageIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+    </svg>
+  );
+}
+
+function BuildIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+    </svg>
+  );
+}
+
+function ManageView() {
   const {
     resumeLibrary,
     setBasicInfo,
@@ -91,27 +140,27 @@ export function ResumeLibraryPage() {
               onClick={() => selectModule(m.key)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
                 isActive
-                  ? 'border-primary-200 bg-primary-50/60'
-                  : 'border-slate-200 bg-white hover:border-slate-300'
+                  ? 'border-primary-200 bg-primary-50/60 dark:bg-neutral-700/60'
+                  : 'border-slate-200 bg-white dark:bg-neutral-800 dark:border-neutral-700 hover:border-slate-300 dark:hover:border-neutral-600'
               }`}
             >
               <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                isActive ? 'bg-primary-100 text-primary-600' : 'bg-slate-50 text-slate-400'
+                isActive ? 'bg-primary-100 text-primary-600 dark:bg-neutral-700 dark:text-primary-300' : 'bg-slate-50 text-slate-400 dark:bg-neutral-700/50 dark:text-neutral-500'
               }`}>
                 {m.icon}
               </span>
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${isActive ? 'text-primary-700' : 'text-slate-800'}`}>{m.title}</p>
-                <p className="text-[11px] text-slate-400 truncate">{m.desc}</p>
+                <p className={`text-sm font-medium ${isActive ? 'text-primary-700 dark:text-primary-300' : 'text-slate-800 dark:text-neutral-200'}`}>{m.title}</p>
+                <p className="text-[11px] text-slate-400 dark:text-neutral-500 truncate">{m.desc}</p>
               </div>
-              <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">{counts[m.key]}</span>
+              <span className="text-[10px] text-slate-400 dark:text-neutral-500 bg-slate-100 dark:bg-neutral-700/60 px-1.5 py-0.5 rounded shrink-0">{counts[m.key]}</span>
             </button>
           );
         })}
       </div>
 
       {/* Right: only the active module */}
-      <div className="flex-1 min-w-0 bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-y-auto scrollbar-thin">
+      <div className="flex-1 min-w-0 bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-neutral-700 shadow-sm p-6 overflow-y-auto scrollbar-thin">
         <ActiveModuleEditor moduleKey={activeModule} {...editorProps} />
       </div>
     </div>
@@ -124,13 +173,13 @@ function CollapsibleSection({
   title: string; icon: React.ReactNode; count: number; expanded: boolean; onToggle: () => void; onAdd?: () => void; children: React.ReactNode;
 }) {
   return (
-    <div className={`bg-white rounded-xl border transition-all ${expanded ? 'border-slate-200' : 'border-slate-200'}`}>
+    <div className={`bg-white dark:bg-neutral-800 rounded-xl border transition-all ${expanded ? 'border-slate-200 dark:border-neutral-700' : 'border-slate-200 dark:border-neutral-700'}`}>
       <div className="flex items-center gap-3 px-4 py-3">
         <button onClick={onToggle} className="flex items-center gap-3 flex-1 text-left">
-          <span className="w-7 h-7 rounded-lg bg-slate-50 flex items-center justify-center text-slate-500 shrink-0">{icon}</span>
-          <span className="text-sm font-medium text-slate-900 flex-1">{title}</span>
-          <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">{count}</span>
-          <svg className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <span className="w-7 h-7 rounded-lg bg-slate-50 dark:bg-neutral-700/50 flex items-center justify-center text-slate-500 dark:text-neutral-400 shrink-0">{icon}</span>
+          <span className="text-sm font-medium text-slate-900 dark:text-neutral-100 flex-1">{title}</span>
+          <span className="text-[10px] text-slate-400 dark:text-neutral-500 bg-slate-100 dark:bg-neutral-700/60 px-1.5 py-0.5 rounded shrink-0">{count}</span>
+          <svg className={`w-4 h-4 text-slate-400 dark:text-neutral-500 transition-transform shrink-0 ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
@@ -231,37 +280,20 @@ function ActiveModuleEditor({
   }
 
   if (moduleKey === 'workExperience') {
-    // Group by company
-    const groups = new Map<string, WorkExperienceEntry[]>();
-    (library.workExperience ?? []).forEach((entry) => {
-      const company = entry.company || '未命名公司';
-      if (!groups.has(company)) groups.set(company, []);
-      groups.get(company)!.push(entry);
-    });
     return (
-      <ModuleContainer title={module.title} desc="按公司折叠管理" onAdd={() => onAdd(moduleKey)}>
-        {groups.size === 0 ? (
+      <ModuleContainer title={module.title} desc="一家公司一条记录，职责与成就用列表描述" onAdd={() => onAdd(moduleKey)}>
+        {(library.workExperience?.length ?? 0) === 0 ? (
           <EmptyHint />
         ) : (
           <div className="space-y-2">
-            {Array.from(groups.entries()).map(([company, entries]) => (
+            {library.workExperience.map((entry) => (
               <CollapsibleEntry
-                key={company}
-                title={company}
-                subtitle={`${entries.length} 段经历`}
+                key={entry.id}
+                title={entry.company || '（未填写公司）'}
+                subtitle={[entry.position, [entry.startDate, entry.endDate].filter(Boolean).join(' - ')].filter(Boolean).join(' · ') || '点击编辑'}
+                onDelete={() => onDeleteWork(entry.id)}
               >
-                <div className="space-y-2">
-                  {entries.map((entry) => (
-                    <CollapsibleEntry
-                      key={entry.id}
-                      title={`${entry.company || '公司'} · ${entry.position || '职位'}`}
-                      subtitle={`${entry.startDate || '未填写'} - ${entry.endDate || '至今'}`}
-                      onDelete={() => onDeleteWork(entry.id)}
-                    >
-                      <WorkForm entry={entry} onSave={(e) => onUpdateWork(entry.id, e)} onCancel={() => {}} />
-                    </CollapsibleEntry>
-                  ))}
-                </div>
+                <WorkForm entry={entry} onSave={(e) => onUpdateWork(entry.id, e)} onCancel={() => {}} />
               </CollapsibleEntry>
             ))}
           </div>
@@ -323,21 +355,21 @@ function CollapsibleEntry({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className={`border rounded-xl overflow-hidden transition-colors ${open ? 'border-primary-200' : 'border-slate-200'}`}>
+    <div className={`border rounded-xl overflow-hidden transition-colors ${open ? 'border-primary-200' : 'border-slate-200 dark:border-neutral-700'}`}>
       <div className="flex items-center gap-3 px-4 py-3 group">
         <button onClick={() => setOpen(!open)} className="flex items-center gap-2 flex-1 text-left min-w-0">
-          <svg className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className={`w-4 h-4 text-slate-400 dark:text-neutral-500 transition-transform shrink-0 ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
           <div className="min-w-0">
-            <p className="text-sm font-medium text-slate-900 truncate">{title}</p>
-            {subtitle && <p className="text-[11px] text-slate-400 truncate">{subtitle}</p>}
+            <p className="text-sm font-medium text-slate-900 dark:text-neutral-100 truncate">{title}</p>
+            {subtitle && <p className="text-[11px] text-slate-400 dark:text-neutral-500 truncate">{subtitle}</p>}
           </div>
         </button>
         {onDelete && (
           <button
             onClick={onDelete}
-            className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+            className="p-1.5 rounded-lg text-slate-300 dark:text-neutral-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all shrink-0"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -346,7 +378,7 @@ function CollapsibleEntry({
         )}
       </div>
       {open && (
-        <div className="px-4 pb-4 border-t border-slate-100 pt-4 animate-fade-in">{children}</div>
+        <div className="px-4 pb-4 border-t border-slate-100 dark:border-neutral-700 pt-4 animate-fade-in">{children}</div>
       )}
     </div>
   );
@@ -378,7 +410,7 @@ function BasicInfoForm({ initial, onSave }: { initial: BasicInfoEntry; onSave: (
       <Textarea label="个人简介" rows={4} placeholder="一句话介绍你的职业定位和核心优势" value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} />
       <div className="flex items-center gap-3">
         <Button size="md" onClick={handleSave}>保存基本信息</Button>
-        {saved && <span className="text-xs text-emerald-600">已保存</span>}
+        {saved && <span className="text-xs text-emerald-600 dark:text-emerald-300">已保存</span>}
       </div>
     </div>
   );
@@ -401,10 +433,10 @@ function StrengthForm({ entry, onSave, onCancel }: { entry: PersonalStrengthEntr
 function StrengthDisplay({ entry, onEdit }: { entry: PersonalStrengthEntry; onEdit: () => void }) {
   return (
     <div className="cursor-pointer" onClick={onEdit}>
-      <p className="text-sm text-slate-700 flex items-start gap-2">
+      <p className="text-sm text-slate-700 dark:text-neutral-200 flex items-start gap-2">
         <span className="mt-0.5 text-primary-400 shrink-0">✦</span>
-        <span>{entry.content || <span className="text-slate-300">未填写</span>}</span>
-        {entry.status === 'draft' && <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded shrink-0">草稿</span>}
+        <span>{entry.content || <span className="text-slate-300 dark:text-neutral-600">未填写</span>}</span>
+        {entry.status === 'draft' && <span className="text-[10px] text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded shrink-0">草稿</span>}
       </p>
     </div>
   );
@@ -414,8 +446,8 @@ function ModuleContainer({ title, desc, onAdd, children }: { title: string; desc
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-        <span className="text-xs text-slate-400">{desc}</span>
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-neutral-100">{title}</h3>
+        <span className="text-xs text-slate-400 dark:text-neutral-500">{desc}</span>
         {onAdd && (
           <Button variant="ghost" size="sm" onClick={onAdd} className="ml-auto">
             <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -432,7 +464,7 @@ function ModuleContainer({ title, desc, onAdd, children }: { title: string; desc
 
 function EmptyHint() {
   return (
-    <div className="text-center py-16 text-slate-400">
+    <div className="text-center py-16 text-slate-400 dark:text-neutral-500">
       <p className="text-sm">暂无数据</p>
       <p className="text-xs mt-1">请在左侧点击"新增"按钮添加</p>
     </div>
@@ -443,13 +475,13 @@ function EmptyHint() {
 function EditableCard({ children, onDelete }: { children: (editing: boolean, setEditing: (v: boolean) => void) => React.ReactNode; onDelete: () => void }) {
   const [editing, setEditing] = useState(false);
   return (
-    <div className="relative border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition-colors group">
+    <div className="relative border border-slate-200 dark:border-neutral-700 rounded-xl p-4 hover:border-slate-300 dark:hover:border-neutral-600 transition-colors group">
       {!editing && (
         <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => setEditing(true)} className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+          <button onClick={() => setEditing(true)} className="p-1 rounded text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300 hover:bg-slate-100 dark:hover:bg-neutral-700">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
           </button>
-          <button onClick={onDelete} className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50">
+          <button onClick={onDelete} className="p-1 rounded text-slate-400 dark:text-neutral-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           </button>
         </div>
@@ -463,7 +495,7 @@ function EditableCard({ children, onDelete }: { children: (editing: boolean, set
 function DateInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-slate-700">{label}</label>
+      <label className="block text-sm font-medium text-slate-700 dark:text-neutral-200">{label}</label>
       <MonthPicker value={value} onChange={onChange} placeholder="选择年月" />
     </div>
   );
@@ -495,11 +527,11 @@ function EduForm({ entry, onSave, onCancel }: { entry: EducationEntry; onSave: (
 function EduDisplay({ entry, onEdit }: { entry: EducationEntry; onEdit: () => void }) {
   return (
     <div className="cursor-pointer" onClick={onEdit}>
-      <p className="text-sm font-medium text-slate-900">{entry.school || <span className="text-slate-300">学校</span>}{entry.major && <span className="font-normal text-slate-500"> · {entry.major}</span>}
-        {entry.status === 'draft' && <span className="ml-2 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">草稿</span>}
+      <p className="text-sm font-medium text-slate-900 dark:text-neutral-100">{entry.school || <span className="text-slate-300 dark:text-neutral-600">学校</span>}{entry.major && <span className="font-normal text-slate-500 dark:text-neutral-400"> · {entry.major}</span>}
+        {entry.status === 'draft' && <span className="ml-2 text-[10px] text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">草稿</span>}
       </p>
-      <p className="text-xs text-slate-500 mt-0.5">{entry.degree}{entry.startDate && ` | ${entry.startDate} - ${entry.endDate || '至今'}`}</p>
-      {entry.description && <p className="text-xs text-slate-600 mt-1">{entry.description}</p>}
+      <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">{entry.degree}{entry.startDate && ` | ${entry.startDate} - ${entry.endDate || '至今'}`}</p>
+      {entry.description && <p className="text-xs text-slate-600 dark:text-neutral-300 mt-1">{entry.description}</p>}
     </div>
   );
 }
@@ -517,7 +549,10 @@ function WorkForm({ entry, onSave, onCancel }: { entry: WorkExperienceEntry; onS
         <DateInput label="开始时间" value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} />
         <EndDateInput label="结束时间" value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} />
       </div>
-      <Textarea label="工作职责描述" rows={4} placeholder="描述主要职责、项目成果、数据指标等" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+      <ResponsibilitiesEditor
+        items={form.responsibilities ?? []}
+        onChange={(items) => setForm({ ...form, responsibilities: items })}
+      />
       <div className="flex gap-2 justify-end">
         <Button variant="ghost" size="sm" onClick={onCancel}>取消</Button>
         <Button size="sm" onClick={() => onSave(form)}>保存</Button>
@@ -531,16 +566,16 @@ function EndDateInput({ label, value, onChange }: { label: string; value: string
   const isPresent = value === '';
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-slate-700">{label}</label>
+      <label className="block text-sm font-medium text-slate-700 dark:text-neutral-200">{label}</label>
       <div className="flex items-center gap-2">
         <div className="flex-1">
           {isPresent ? (
-            <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400">至今</div>
+            <div className="w-full rounded-lg border border-slate-200 dark:border-neutral-700 bg-slate-50 dark:bg-neutral-700/50 px-3 py-2 text-sm text-slate-400 dark:text-neutral-500">至今</div>
           ) : (
             <MonthPicker value={value} onChange={onChange} placeholder="选择年月" />
           )}
         </div>
-        <label className="flex items-center gap-1.5 text-xs text-slate-500 cursor-pointer shrink-0 select-none">
+        <label className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-neutral-400 cursor-pointer shrink-0 select-none">
           <input
             type="checkbox"
             checked={isPresent}
@@ -551,7 +586,7 @@ function EndDateInput({ label, value, onChange }: { label: string; value: string
                 onChange(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
               }
             }}
-            className="h-3.5 w-3.5 rounded border-slate-300 text-primary-600 focus:ring-primary-500/30"
+            className="h-3.5 w-3.5 rounded border-slate-300 text-primary-600 dark:text-primary-300 focus:ring-primary-500/30"
           />
           至今
         </label>
@@ -561,16 +596,26 @@ function EndDateInput({ label, value, onChange }: { label: string; value: string
 }
 
 function WorkDisplay({ entry, onEdit }: { entry: WorkExperienceEntry; onEdit: () => void }) {
+  const items = (entry.responsibilities ?? []).length > 0 ? entry.responsibilities : [];
   return (
     <div className="cursor-pointer" onClick={onEdit}>
       <div className="flex items-baseline gap-2">
-        <p className="text-sm font-medium text-slate-900">{entry.company || <span className="text-slate-300">公司</span>}
-          {entry.status === 'draft' && <span className="ml-2 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">草稿</span>}
+        <p className="text-sm font-medium text-slate-900 dark:text-neutral-100">{entry.company || <span className="text-slate-300 dark:text-neutral-600">公司</span>}
+          {entry.status === 'draft' && <span className="ml-2 text-[10px] text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">草稿</span>}
         </p>
-        {entry.position && <span className="text-xs text-slate-500">{entry.position}</span>}
+        {entry.position && <span className="text-xs text-slate-500 dark:text-neutral-400">{entry.position}</span>}
       </div>
-      <p className="text-xs text-slate-500 mt-0.5">{entry.startDate} - {entry.endDate || '至今'}</p>
-      {entry.description && <p className="text-xs text-slate-600 mt-1.5 whitespace-pre-wrap line-clamp-3">{entry.description}</p>}
+      <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">{entry.startDate} - {entry.endDate || '至今'}</p>
+      {items.length > 0 && (
+        <ul className="mt-1.5 space-y-1">
+          {items.map((item, i) => (
+            <li key={i} className="text-xs text-slate-600 dark:text-neutral-300 flex gap-1.5">
+              <span className="text-slate-400 dark:text-neutral-500 select-none shrink-0">•</span>
+              <span className="line-clamp-2">{item}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -601,13 +646,13 @@ function ProjectDisplay({ entry, onEdit }: { entry: ProjectEntry; onEdit: () => 
   return (
     <div className="cursor-pointer" onClick={onEdit}>
       <div className="flex items-baseline gap-2">
-        <p className="text-sm font-medium text-slate-900">{entry.name || <span className="text-slate-300">项目名称</span>}
-          {entry.status === 'draft' && <span className="ml-2 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">草稿</span>}
+        <p className="text-sm font-medium text-slate-900 dark:text-neutral-100">{entry.name || <span className="text-slate-300 dark:text-neutral-600">项目名称</span>}
+          {entry.status === 'draft' && <span className="ml-2 text-[10px] text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">草稿</span>}
         </p>
-        {entry.role && <span className="text-xs text-slate-500">{entry.role}</span>}
+        {entry.role && <span className="text-xs text-slate-500 dark:text-neutral-400">{entry.role}</span>}
       </div>
-      <p className="text-xs text-slate-500 mt-0.5">{entry.startDate} - {entry.endDate || '至今'}</p>
-      {entry.description && <p className="text-xs text-slate-600 mt-1.5 whitespace-pre-wrap line-clamp-3">{entry.description}</p>}
+      <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">{entry.startDate} - {entry.endDate || '至今'}</p>
+      {entry.description && <p className="text-xs text-slate-600 dark:text-neutral-300 mt-1.5 whitespace-pre-wrap line-clamp-3">{entry.description}</p>}
     </div>
   );
 }
@@ -630,10 +675,10 @@ function SkillForm({ entry, onSave, onCancel }: { entry: CoreSkillEntry; onSave:
 function SkillDisplay({ entry, onEdit }: { entry: CoreSkillEntry; onEdit: () => void }) {
   return (
     <div className="cursor-pointer" onClick={onEdit}>
-      <p className="text-sm font-medium text-slate-900">{entry.category || <span className="text-slate-300">分类</span>}
-        {entry.status === 'draft' && <span className="ml-2 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">草稿</span>}
+      <p className="text-sm font-medium text-slate-900 dark:text-neutral-100">{entry.category || <span className="text-slate-300 dark:text-neutral-600">分类</span>}
+        {entry.status === 'draft' && <span className="ml-2 text-[10px] text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">草稿</span>}
       </p>
-      <p className="text-xs text-slate-600 mt-0.5">{entry.skills || <span className="text-slate-300">未填写</span>}</p>
+      <p className="text-xs text-slate-600 dark:text-neutral-300 mt-0.5">{entry.skills || <span className="text-slate-300 dark:text-neutral-600">未填写</span>}</p>
     </div>
   );
 }

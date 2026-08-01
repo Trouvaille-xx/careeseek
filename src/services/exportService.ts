@@ -1,4 +1,4 @@
-import type { FinalResume } from '@/types';
+import type { FinalResume, ResumeBuilderDraft, BuilderSectionKey, AccentColor } from '@/types';
 
 interface CJKFontDoc {
   addFileToVFS: (name: string, data: string) => void;
@@ -141,4 +141,174 @@ export async function exportPDF(resume: FinalResume): Promise<void> {
   });
 
   doc.save('careeseek-resume.pdf');
+}
+
+// ============ Resume Builder export (结构化排版) ============
+
+const SECTION_TITLES: Record<BuilderSectionKey, string> = {
+  education: '教育经历',
+  workExperience: '工作经历',
+  projects: '项目经历',
+  coreSkills: '专业技能',
+  personalStrengths: '个人优势',
+};
+
+export function buildBuilderJSON(draft: ResumeBuilderDraft): string {
+  const visible = draft.sectionOrder.filter((k) => draft.visibleSections[k]);
+  const sections = visible.map((k) => ({
+    title: SECTION_TITLES[k],
+    items: draft[k],
+  }));
+  return JSON.stringify({
+    title: 'CareeSeek 简历制作',
+    exportedAt: new Date().toISOString(),
+    template: draft.template,
+    accentColor: draft.accentColor,
+    fontSize: draft.fontSize,
+    basicInfo: draft.basicInfo,
+    sections,
+  }, null, 2);
+}
+
+export function exportBuilderJSON(draft: ResumeBuilderDraft): void {
+  downloadBlob(
+    new Blob([buildBuilderJSON(draft)], { type: 'application/json;charset=utf-8' }),
+    'careeseek-builder-resume.json'
+  );
+}
+
+function builderEntryLines(kind: BuilderSectionKey, item: ResumeBuilderDraft[BuilderSectionKey][number]): { left: string; right: string; body: string } {
+  switch (kind) {
+    case 'education': {
+      const e = item as ResumeBuilderDraft['education'][number];
+      return {
+        left: [e.school, e.major, e.degree].filter(Boolean).join(' | '),
+        right: e.startDate && e.endDate ? `${e.startDate} - ${e.endDate}` : (e.startDate || e.endDate || ''),
+        body: e.description,
+      };
+    }
+    case 'workExperience': {
+      const w = item as ResumeBuilderDraft['workExperience'][number];
+      return {
+        left: [w.company, w.position].filter(Boolean).join(' | '),
+        right: w.startDate && w.endDate ? `${w.startDate} - ${w.endDate}` : (w.startDate || w.endDate || ''),
+        body: (w.responsibilities ?? []).join('\n'),
+      };
+    }
+    case 'projects': {
+      const p = item as ResumeBuilderDraft['projects'][number];
+      return {
+        left: [p.name, p.role].filter(Boolean).join(' | '),
+        right: p.startDate && p.endDate ? `${p.startDate} - ${p.endDate}` : (p.startDate || p.endDate || ''),
+        body: p.description,
+      };
+    }
+    case 'coreSkills': {
+      const s = item as ResumeBuilderDraft['coreSkills'][number];
+      return { left: s.category ? `${s.category}：${s.skills}` : s.skills, right: '', body: '' };
+    }
+    case 'personalStrengths': {
+      const p = item as ResumeBuilderDraft['personalStrengths'][number];
+      return { left: p.content, right: '', body: '' };
+    }
+  }
+}
+
+/** 主题色 → RGB（与预览一致） */
+const ACCENT_RGB: Record<AccentColor, [number, number, number]> = {
+  slate: [17, 24, 39],
+  blue: [30, 64, 175],
+  green: [6, 95, 70],
+  red: [153, 27, 27],
+  violet: [91, 33, 182],
+};
+
+export async function exportBuilderPDF(draft: ResumeBuilderDraft): Promise<void> {
+  const { jsPDF } = await getJsPDF();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const hasCJK = await ensureCJKFont(doc);
+  const fontName = hasCJK ? CJK_FONT_NAME : 'helvetica';
+  const accent: [number, number, number] = ACCENT_RGB[draft.accentColor] ?? ACCENT_RGB.slate;
+
+  const sizeMap = {
+    small: { header: 18, name: 19, entry: 9.5, body: 9 },
+    medium: { header: 20, name: 21, entry: 10, body: 9.5 },
+    large: { header: 21, name: 22, entry: 10.5, body: 10 },
+  } as const;
+  const sz = sizeMap[draft.fontSize];
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const maxWidth = pageWidth - margin * 2;
+  let y = margin;
+
+  const ensureSpace = (needed: number) => {
+    if (y + needed > pageHeight - margin) {
+      doc.addPage();
+      y = margin;
+    }
+  };
+
+  const writeText = (text: string, x: number, size: number, style: 'normal' | 'bold', color?: [number, number, number], align?: 'right') => {
+    doc.setFont(fontName, style);
+    doc.setFontSize(size);
+    if (color) doc.setTextColor(color[0], color[1], color[2]);
+    doc.text(text, x, y, align ? { align } : undefined);
+  };
+
+  // Header: name + contact line
+  const info = draft.basicInfo;
+  if (info.name) {
+    writeText(info.name, margin, sz.name, 'bold', accent);
+    y += 8;
+  }
+  const contactParts = [info.jobIntent, info.phone, info.email, info.city, info.website].filter(Boolean);
+  if (contactParts.length > 0) {
+    const contactLine = doc.splitTextToSize(contactParts.join('  |  '), maxWidth);
+    writeText(contactLine[0], margin, 9, 'normal', [90, 90, 90]);
+    y += contactLine.length > 1 ? 8 * contactLine.length : 5;
+  }
+  y += 3;
+
+  // Sections
+  for (const key of draft.sectionOrder) {
+    if (!draft.visibleSections[key]) continue;
+    const items = draft[key];
+    if (items.length === 0) continue;
+
+    ensureSpace(10);
+    doc.setDrawColor(accent[0], accent[1], accent[2]);
+    doc.setLineWidth(0.6);
+    doc.line(margin, y - 1.5, pageWidth - margin, y - 1.5);
+    writeText(SECTION_TITLES[key], margin, sz.header, 'bold', accent);
+    y += 6;
+
+    for (const item of items) {
+      const { left, right, body } = builderEntryLines(key, item);
+      if (!left && !body) continue;
+
+      ensureSpace(8);
+      if (left) {
+        writeText(left, margin, sz.entry, 'bold', [30, 30, 30]);
+        if (right) {
+          writeText(right, pageWidth - margin, sz.entry, 'normal', [90, 90, 90], 'right');
+        }
+        y += 5.5;
+      }
+      if (body) {
+        const lines = doc.splitTextToSize(body, maxWidth);
+        const lh = sz.body + 1.2;
+        for (const line of lines) {
+          ensureSpace(lh);
+          writeText(line, margin, sz.body, 'normal', [60, 60, 60]);
+          y += lh;
+        }
+      }
+      y += 2;
+    }
+    y += 3;
+  }
+
+  doc.save('careeseek-builder-resume.pdf');
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { STEPS } from '@/types';
 
 interface StepProgressBarProps {
@@ -9,7 +9,7 @@ interface StepProgressBarProps {
 
 export function StepProgressBar({ currentStep, stepStatuses, onStepClick }: StepProgressBarProps) {
   return (
-    <div className="flex items-center gap-0 px-8 py-4 border-b border-slate-100 bg-white">
+    <div className="flex items-center gap-0 px-8 py-4 border-b border-slate-100 bg-white dark:border-neutral-800 dark:bg-neutral-950">
       {STEPS.map((step, index) => {
         const status = stepStatuses[step.id] || 'locked';
         const isActive = step.id === currentStep;
@@ -37,28 +37,28 @@ export function StepProgressBar({ currentStep, stepStatuses, onStepClick }: Step
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
           );
-          circleStyle = 'border-2 border-primary-500 border-t-transparent bg-white text-primary-500 animate-pulse';
+          circleStyle = 'border-2 border-primary-500 border-t-transparent bg-white text-primary-500 animate-pulse dark:bg-neutral-800';
           labelStyle = 'text-primary-600';
-          lineStyle = 'bg-slate-200';
+          lineStyle = 'bg-slate-200 dark:bg-neutral-700';
         } else if (isActive) {
           circleContent = <span className="text-xs font-bold">{step.id}</span>;
           circleStyle = 'bg-primary-600 text-white border-primary-600';
           labelStyle = 'text-primary-600 font-medium';
-          lineStyle = 'bg-slate-200';
+          lineStyle = 'bg-slate-200 dark:bg-neutral-700';
         } else if (isClickable) {
           circleContent = <span className="text-xs font-medium text-slate-400">{step.id}</span>;
-          circleStyle = 'bg-white text-slate-400 border-slate-300';
-          labelStyle = 'text-slate-500';
-          lineStyle = 'bg-slate-200';
+          circleStyle = 'bg-white text-slate-400 border-slate-300 dark:bg-neutral-800 dark:border-neutral-600';
+          labelStyle = 'text-slate-500 dark:text-neutral-400';
+          lineStyle = 'bg-slate-200 dark:bg-neutral-600';
         } else {
           circleContent = (
-            <svg className="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-3 h-3 text-slate-300 dark:text-neutral-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           );
-          circleStyle = 'bg-white text-slate-300 border-slate-200';
-          labelStyle = 'text-slate-300';
-          lineStyle = 'bg-slate-100';
+          circleStyle = 'bg-white text-slate-300 border-slate-200 dark:bg-neutral-800 dark:border-neutral-600';
+          labelStyle = 'text-slate-300 dark:text-neutral-600';
+          lineStyle = 'bg-slate-100 dark:bg-neutral-700';
         }
 
         return (

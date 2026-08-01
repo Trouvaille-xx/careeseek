@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+﻿import React, { useRef, useState } from 'react';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -37,7 +37,7 @@ export function FileUpload({ onFileSelect, onRemove, fileName, isImage, accept, 
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-primary-600 hover:bg-primary-50 px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300 hover:border-primary-400 transition-all duration-150"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-primary-600 hover:bg-primary-50 px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300 hover:border-primary-400 transition-all duration-150 dark:text-neutral-400 dark:hover:bg-neutral-700/50 dark:border-neutral-600"
         >
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -47,7 +47,7 @@ export function FileUpload({ onFileSelect, onRemove, fileName, isImage, accept, 
 
         {/* File info */}
         {fileName && (
-          <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200">
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:text-neutral-300 dark:bg-neutral-700/60 dark:border-neutral-600">
             {isImage ? (
               <svg className="w-3.5 h-3.5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />

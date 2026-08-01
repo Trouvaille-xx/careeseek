@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+﻿import React, { useEffect, useRef } from 'react';
 
 interface DialogProps {
   open: boolean;
@@ -35,13 +35,13 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm animate-fade-in"
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg mx-4 animate-slide-up">
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg mx-4 animate-slide-up dark:bg-neutral-800 dark:border-neutral-700">
         {title && (
           <div className="flex items-center justify-between px-6 pt-6 pb-0">
-            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-neutral-100">{title}</h2>
             <button
               onClick={onClose}
-              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors dark:hover:bg-neutral-700"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
