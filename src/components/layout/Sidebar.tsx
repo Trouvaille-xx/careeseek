@@ -1,12 +1,13 @@
 ﻿import React, { useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
+import { THEME_OPTIONS } from '@/utils/theme';
 
 interface SidebarProps {
   onNewAnalysis: () => void;
 }
 
 export function Sidebar({ onNewAnalysis }: SidebarProps) {
-  const { currentStep, auth, plans, setCurrentStep } = useAppStore();
+  const { currentStep, auth, plans, setCurrentStep, themeMode, setThemeMode } = useAppStore();
   const [accountOpen, setAccountOpen] = useState(false);
   const planName = plans.find((p) => p.id === auth.user?.plan)?.name;
 
@@ -104,6 +105,26 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
                         {planName} · {auth.quota?.used ?? 0}/{auth.quota?.limit ?? 0} 积分
                       </span>
                     </div>
+                    {/* 主题切换 */}
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-neutral-700">
+                      <p className="text-[11px] text-slate-400 dark:text-neutral-500 mb-1.5">主题</p>
+                      <div className="flex bg-slate-100 dark:bg-neutral-700/60 rounded-lg p-0.5 gap-0.5">
+                        {THEME_OPTIONS.map((t) => (
+                          <button
+                            key={t.value}
+                            type="button"
+                            onClick={() => setThemeMode(t.value)}
+                            className={`flex-1 px-1 py-1.5 rounded-md text-[11px] transition-colors ${
+                              themeMode === t.value
+                                ? 'bg-white text-slate-900 font-medium shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                                : 'text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <MenuRow
                       icon={
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -133,6 +154,25 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
                   </>
                 ) : (
                   <>
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-neutral-700">
+                      <p className="text-[11px] text-slate-400 dark:text-neutral-500 mb-1.5">主题</p>
+                      <div className="flex bg-slate-100 dark:bg-neutral-700/60 rounded-lg p-0.5 gap-0.5">
+                        {THEME_OPTIONS.map((t) => (
+                          <button
+                            key={t.value}
+                            type="button"
+                            onClick={() => setThemeMode(t.value)}
+                            className={`flex-1 px-1 py-1.5 rounded-md text-[11px] transition-colors ${
+                              themeMode === t.value
+                                ? 'bg-white text-slate-900 font-medium shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                                : 'text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <MenuRow
                       icon={
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -145,6 +185,26 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
                         setCurrentStep(-5);
                       }}
                     />
+                    {/* 主题切换 */}
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-neutral-700">
+                      <p className="text-[11px] text-slate-400 dark:text-neutral-500 mb-1.5">主题</p>
+                      <div className="flex bg-slate-100 dark:bg-neutral-700/60 rounded-lg p-0.5 gap-0.5">
+                        {THEME_OPTIONS.map((t) => (
+                          <button
+                            key={t.value}
+                            type="button"
+                            onClick={() => setThemeMode(t.value)}
+                            className={`flex-1 px-1 py-1.5 rounded-md text-[11px] transition-colors ${
+                              themeMode === t.value
+                                ? 'bg-white text-slate-900 font-medium shadow-sm dark:bg-neutral-600 dark:text-neutral-100'
+                                : 'text-slate-500 hover:text-slate-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                            }`}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <MenuRow
                       icon={
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
