@@ -1,13 +1,48 @@
 import { useAppStore } from '@/stores/useAppStore';
+import { getProxyBase } from '@/stores/useAppStore';
 import { stripThinkTags } from '@/utils/text';
 
 const API_TIMEOUT_MS = 90000;
 const MAX_ATTEMPTS = 2;
 
+/** 配额超限错误（402）——全局升级引导用 */
+export class QuotaExceededError extends Error {
+  quota: { used: number; limit: number; plan: string };
+  constructor(message: string, quota: { used: number; limit: number; plan: string }) {
+    super(message);
+    this.name = 'QuotaExceededError';
+    this.quota = quota;
+  }
+}
+
 function isRetryableError(e: unknown, status?: number): boolean {
   if (status !== undefined) return status >= 500;
   if (e instanceof DOMException && e.name === 'AbortError') return true;
   return e instanceof TypeError; // 网络错误 (Failed to fetch)
+}
+
+/**
+ * 决定请求目标与鉴权方式：
+ * - 已登录（auth.token）→ 走托管代理（getProxyBase()/chat/completions，Bearer 会话 token）
+ * - 未登录 → BYOK 直连（apiSettings.baseUrl + apiKey）
+ */
+function resolveEndpoint(): { url: string; headers: Record<string, string>; model: string } {
+  const { auth, apiSettings } = useAppStore.getState();
+  if (auth.token) {
+    return {
+      url: `${getProxyBase()}/chat/completions`,
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` },
+      model: 'deepseek-v4-flash',
+    };
+  }
+  if (!apiSettings.apiKey) {
+    throw new Error('请先在设置中配置 API Key，或登录使用云端 AI 服务');
+  }
+  return {
+    url: `${apiSettings.baseUrl.replace(/\/+$/, '')}/chat/completions`,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiSettings.apiKey}` },
+    model: apiSettings.model || 'gpt-4o',
+  };
 }
 
 async function fetchWithTimeout(
@@ -28,28 +63,28 @@ async function chatCompletion(
   messages: { role: string; content: string }[],
   extra: { temperature?: number; max_tokens?: number; stream?: boolean } = {}
 ): Promise<Response> {
-  const { apiSettings } = useAppStore.getState();
+  const { url, headers, model } = resolveEndpoint();
 
-  if (!apiSettings.apiKey) {
-    throw new Error('请先在设置中配置 API Key');
-  }
-
-  const url = `${apiSettings.baseUrl.replace(/\/+$/, '')}/chat/completions`;
-
-  return fetchWithTimeout(url, {
+  const res = await fetchWithTimeout(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiSettings.apiKey}`,
-    },
+    headers,
     body: JSON.stringify({
-      model: apiSettings.model || 'gpt-4o',
+      model,
       messages,
       temperature: extra.temperature ?? 0.3,
       max_tokens: extra.max_tokens ?? 4096,
       ...(extra.stream ? { stream: true } : {}),
     }),
   });
+
+  if (res.status === 402) {
+    const data = await res.json().catch(() => ({}));
+    throw new QuotaExceededError(
+      (data as { error?: string }).error || '本月额度已用完，请升级套餐',
+      (data as { quota?: { used: number; limit: number; plan: string } }).quota ?? { used: 0, limit: 0, plan: 'free' }
+    );
+  }
+  return res;
 }
 
 export async function callLLM(systemPrompt: string, userPrompt: string): Promise<string> {

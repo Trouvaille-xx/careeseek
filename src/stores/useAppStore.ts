@@ -31,6 +31,12 @@ import {
   BuilderSectionKey,
   BuilderTemplate,
   AccentColor,
+  AuthState,
+  AuthUser,
+  QuotaInfo,
+  PlanInfo,
+  PlanId,
+  TrackProps,
 } from '@/types';
 
 interface AppStore {
@@ -161,6 +167,19 @@ interface AppStore {
   deleteWorkspace: (name: string) => void;
   setThemeMode: (mode: 'system' | 'light' | 'dark') => void;
   testApiConnection: (settings?: ApiSettings) => Promise<{ success: boolean; message: string }>;
+
+  // Auth / 托管模式
+  auth: AuthState;
+  authLoading: boolean;
+  authError: string | null;
+  plans: PlanInfo[];
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
+  fetchPlans: () => Promise<void>;
+  checkout: (plan: PlanId) => Promise<{ payment_id: string; qr_url: string; pay_mode: string }>;
+  pollPayment: (paymentId: string) => Promise<'pending' | 'paid' | 'expired' | 'closed'>;
 }
 
 const defaultInput: UserInput = {
@@ -187,6 +206,12 @@ const defaultAnalysisStatus: Record<number, AnalysisStatus> = {
 
 // ============ Workspace 分区 ============
 /** 按工作区隔离的业务字段（全局字段：apiSettings/sidebarExpanded 不分） */
+
+/** 托管后端地址：默认同域 /v1（生产同域部署）；开发期可用 VITE_PROXY_URL 覆盖 */
+export function getProxyBase(): string {
+  return (import.meta.env.VITE_PROXY_URL as string | undefined) || '/v1';
+}
+
 const BUSINESS_KEYS = [
   'userInput',
   'jdAnalysis',
@@ -403,6 +428,10 @@ export const useAppStore = create<AppStore>()(
         apiKey: '',
         model: 'gpt-4o',
       },
+      auth: { token: '', user: null, quota: null },
+      authLoading: false,
+      authError: null,
+      plans: [],
 
       setUserInput: (input) =>
         set((s) => ({ userInput: { ...s.userInput, ...input } })),
@@ -508,6 +537,106 @@ export const useAppStore = create<AppStore>()(
 
       setUploadedJD: (file) => set({ uploadedJD: file }),
       setUploadedResume: (file) => set({ uploadedResume: file }),
+
+      // ============ Auth / 托管模式 ============
+      login: async (email, password) => {
+        set({ authLoading: true, authError: null });
+        try {
+          const res = await fetch(`${getProxyBase()}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || `登录失败 (${res.status})`);
+          set({ auth: { token: data.token, user: data.user, quota: null }, authLoading: false });
+          await get().refreshAuth();
+        } catch (e: any) {
+          set({ authLoading: false, authError: e?.message || '登录失败' });
+          throw e;
+        }
+      },
+
+      register: async (email, password) => {
+        set({ authLoading: true, authError: null });
+        try {
+          const res = await fetch(`${getProxyBase()}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || `注册失败 (${res.status})`);
+          set({ auth: { token: data.token, user: data.user, quota: null }, authLoading: false });
+          await get().refreshAuth();
+        } catch (e: any) {
+          set({ authLoading: false, authError: e?.message || '注册失败' });
+          throw e;
+        }
+      },
+
+      logout: async () => {
+        const { auth } = get();
+        if (auth.token) {
+          try {
+            await fetch(`${getProxyBase()}/auth/logout`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${auth.token}` },
+            });
+          } catch { /* 忽略网络错误 */ }
+        }
+        set({ auth: { token: '', user: null, quota: null } });
+      },
+
+      refreshAuth: async () => {
+        const { auth } = get();
+        if (!auth.token) return;
+        try {
+          const res = await fetch(`${getProxyBase()}/me`, {
+            headers: { Authorization: `Bearer ${auth.token}` },
+          });
+          if (!res.ok) {
+            if (res.status === 401) set({ auth: { token: '', user: null, quota: null } });
+            return;
+          }
+          const data = await res.json();
+          set({ auth: { ...auth, user: data.user, quota: data.quota } });
+        } catch { /* 网络错误忽略 */ }
+      },
+
+      fetchPlans: async () => {
+        try {
+          const res = await fetch(`${getProxyBase()}/plans`);
+          if (!res.ok) return;
+          const data = await res.json();
+          set({ plans: data.plans });
+        } catch { /* 忽略 */ }
+      },
+
+      checkout: async (plan) => {
+        const { auth } = get();
+        const res = await fetch(`${getProxyBase()}/checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}` },
+          body: JSON.stringify({ plan }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `下单失败 (${res.status})`);
+        return data;
+      },
+
+      pollPayment: async (paymentId) => {
+        const { auth } = get();
+        const res = await fetch(`${getProxyBase()}/payments/${paymentId}`, {
+          headers: { Authorization: `Bearer ${auth.token}` },
+        });
+        if (!res.ok) throw new Error(`查询订单失败 (${res.status})`);
+        const data = await res.json();
+        if (data.status === 'paid') {
+          await get().refreshAuth();
+        }
+        return data.status;
+      },
 
       extractFileContent: async (file: File) => {
         const name = file.name.toLowerCase();
@@ -950,6 +1079,7 @@ export const useAppStore = create<AppStore>()(
         apiSettings: state.apiSettings,
         sidebarExpanded: state.sidebarExpanded,
         themeMode: state.themeMode,
+        auth: state.auth,
       }),
       merge: (persisted, current) => {
         const p = persisted as {
@@ -960,6 +1090,7 @@ export const useAppStore = create<AppStore>()(
           apiSettings?: ApiSettings;
           sidebarExpanded?: boolean;
           themeMode?: 'system' | 'light' | 'dark';
+          auth?: AuthState;
         } | undefined;
         if (!p) return current;
 
@@ -976,6 +1107,7 @@ export const useAppStore = create<AppStore>()(
             apiSettings: p.apiSettings ?? current.apiSettings,
             sidebarExpanded: p.sidebarExpanded ?? current.sidebarExpanded,
             themeMode: p.themeMode ?? 'system',
+            auth: p.auth ?? current.auth,
           };
         }
 
@@ -990,6 +1122,7 @@ export const useAppStore = create<AppStore>()(
           apiSettings: legacy.apiSettings ?? current.apiSettings,
           sidebarExpanded: legacy.sidebarExpanded ?? current.sidebarExpanded,
           themeMode: legacy.themeMode ?? 'system',
+          auth: (legacy.auth as AuthState | undefined) ?? current.auth,
         };
       },
     }

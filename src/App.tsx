@@ -10,12 +10,14 @@ import { OptimizationPage } from '@/features/optimization/OptimizationPage';
 import { FinalResumePage } from '@/features/final-resume/FinalResumePage';
 import { InterviewPage } from '@/features/interview/InterviewPage';
 import { AnalysisHomePage } from '@/features/input/AnalysisHomePage';
+import { AuthPage } from '@/features/auth/AuthPage';
 import { ResumeLibraryPage } from '@/features/resume-library/ResumeLibraryPage';
 import { MockInterviewPage } from '@/features/interview/MockInterviewPage';
 import { ApplicationsPage } from '@/features/applications/ApplicationsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { SyncResumeDialog } from '@/features/resume-library/SyncResumeDialog';
 import { analysisService } from '@/services/analysisService';
+import { initTracker, track } from '@/services/tracker';
 import { Button } from '@/components/ui/Button';
 import { applyTheme, watchSystemTheme } from '@/utils/theme';
 
@@ -56,6 +58,18 @@ function App() {
       );
     }
   }, [themeMode]);
+
+  // 启动：恢复埋点缓冲、刷新登录态、拉取套餐
+  useEffect(() => {
+    initTracker();
+    const store = useAppStore.getState();
+    if (store.auth.token) {
+      void store.refreshAuth();
+    } else {
+      track('app_open', { is_first: 'yes' });
+    }
+    void store.fetchPlans();
+  }, []);
 
   const processingRef = useRef<Set<number>>(new Set());
   const [showSyncDialog, setShowSyncDialog] = useState(false);
@@ -296,6 +310,7 @@ function App() {
 
   const renderPage = () => {
     switch (currentStep) {
+      case -5: return <AuthPage />;
       case -4: return <SettingsPage />;
       case -3: return <ApplicationsPage />;
       case -2: return <MockInterviewPage />;

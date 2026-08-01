@@ -146,6 +146,38 @@ export interface ApiSettings {
   model: string;
 }
 
+// ============ Auth / 托管模式 ============
+export type PlanId = 'free' | 'pro' | 'power';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  plan: PlanId;
+}
+
+export interface QuotaInfo {
+  used: number;
+  limit: number;
+  plan: PlanId;
+}
+
+export interface AuthState {
+  token: string;
+  user: AuthUser | null;
+  quota: QuotaInfo | null;
+}
+
+/** 后端 /v1/plans 返回的套餐信息 */
+export interface PlanInfo {
+  id: PlanId;
+  name: string;
+  price_cny: number;
+  token_limit: number;
+}
+
+/** 埋点事件 props（仅数字/枚举字符串，禁 PII） */
+export type TrackProps = Record<string, number | string>;
+
 // ============ File Upload ============
 export type FileType = 'pdf' | 'docx' | 'md' | 'image' | 'text';
 
