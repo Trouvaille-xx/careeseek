@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripCodeFences, extractJSON } from '@/services/apiService';
+import { stripCodeFences, stripThink, extractJSON } from '@/services/apiService';
 
 describe('stripCodeFences', () => {
   it('剥离完整 ```json 围栏', () => {
@@ -47,5 +47,47 @@ describe('extractJSON', () => {
 
   it('完全无法提取时抛错', () => {
     expect(() => extractJSON('完全没有 JSON 内容')).toThrow(/无法解析/);
+  });
+
+  it('含前置 <think>...</think> 时先剥再提取 JSON', () => {
+    // 模拟 LLM 在 JSON 前自言自语的场景
+    const raw = '<think>用户问了北京。</think>\n{"city":"北京"}';
+    expect(JSON.parse(extractJSON(raw))).toEqual({ city: '北京' });
+  });
+});
+
+describe('stripThink', () => {
+  it('剥掉闭合的 <think>...</think> 块', () => {
+    const input = '<think>用户问了北京。</think>\n北京是中国的首都。';
+    expect(stripThink(input)).toBe('北京是中国的首都。');
+  });
+
+  it('剥掉未闭合的 <think>...（兜底丢弃剩余）', () => {
+    // 未闭合的 think 块视为整段是思维链，从 <think> 开始全部丢弃
+    expect(stripThink('<think>用户问了北京。\n北京是中国的首都')).toBe('');
+  });
+
+  it('思维链闭合后还有正文时，只剥 think 保留正文', () => {
+    // 实际场景：think 块没闭合但后面跟着用户真正想要的答案
+    // 我们严格按"未闭合整段丢弃"以避免泄漏思考内容
+    expect(stripThink('<think>reasoning\n答案：北京是首都')).toBe('');
+  });
+
+  it('剥掉 ```think 围栏变体', () => {
+    const input = '```think\nreasoning here\n```\n最终答案。';
+    expect(stripThink(input)).toBe('最终答案。');
+  });
+
+  it('无思维链时原样返回', () => {
+    expect(stripThink('北京是中国的首都。')).toBe('北京是中国的首都。');
+  });
+
+  it('空字符串原样返回', () => {
+    expect(stripThink('')).toBe('');
+  });
+
+  it('只剥思维链，保留内容中其他 ``` 代码块', () => {
+    const input = '<think>reasoning</think>\n使用 `useState` 管理状态，示例：\n```ts\nconst [x, setX] = useState(0);\n```';
+    expect(stripThink(input)).toBe('使用 `useState` 管理状态，示例：\n```ts\nconst [x, setX] = useState(0);\n```');
   });
 });

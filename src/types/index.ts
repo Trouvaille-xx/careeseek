@@ -1,4 +1,4 @@
-// ============ User Input ============
+﻿// ============ User Input ============
 export interface UserInput {
   targetRole: string;
   industry: string;
@@ -99,6 +99,8 @@ export interface InterviewPrep {
   exaggerationRisks: string[];
   dataToSupplement: string[];
   selfIntroduction: string;
+  /** 面试官形象（AI 根据 JD/简历生成的模拟面试官设定） */
+  interviewerPersona?: string;
 }
 
 // ============ Step Status ============
@@ -212,10 +214,10 @@ export interface WorkExperienceEntry {
   position: string;
   startDate: string;
   endDate: string;
-  /** 工作职责与成就，每项一条，按列表渲染 */
-  responsibilities: string[];
-  /** 旧数据遗留字段：迁后留作空读取，新数据不再写入；导出 PDF 时合并到 responsibilities */
-  description?: string;
+  /** 工作职责与成就，自由文本，直接填入描述框（与项目经历一致，不再拆分为逐条列表） */
+  description: string;
+  /** 旧数据遗留字段：历史版本以逐条列表存储，迁后仅在迁移读取时使用 */
+  responsibilities?: string[];
   status: 'draft' | 'approved';
 }
 
@@ -252,6 +254,26 @@ export interface PersonalStrengthEntry {
   status: 'draft' | 'approved';
 }
 
+/** 自定义模块的条目（部分岗位要求额外模块，如证书、获奖、语言能力等） */
+export interface CustomModuleEntry {
+  id: string;
+  /** 条目标题 */
+  title: string;
+  /** 附加信息（机构/时间/等级 等） */
+  detail: string;
+  /** 自由描述 */
+  description: string;
+  status: 'draft' | 'approved';
+}
+
+/** 用户自定义简历模块（名称 + 若干条目） */
+export interface CustomModule {
+  id: string;
+  /** 模块名，如：证书荣誉 / 语言能力 */
+  title: string;
+  entries: CustomModuleEntry[];
+}
+
 export interface ResumeLibrary {
   basicInfo: BasicInfoEntry | null;
   education: EducationEntry[];
@@ -259,10 +281,12 @@ export interface ResumeLibrary {
   projects: ProjectEntry[];
   coreSkills: CoreSkillEntry[];
   personalStrengths: PersonalStrengthEntry[];
+  /** 用户新增的自定义模块（部分岗位要求额外模块） */
+  customModules: CustomModule[];
 }
 
 // ============ Resume Builder (简历制作) ============
-export type BuilderSectionKey = 'education' | 'workExperience' | 'projects' | 'coreSkills' | 'personalStrengths';
+export type BuilderSectionKey = 'education' | 'workExperience' | 'projects' | 'coreSkills' | 'personalStrengths' | 'custom';
 
 /** 内置排版模板 */
 export type BuilderTemplate = 'classic' | 'sidebar' | 'header' | 'minimal';
@@ -289,6 +313,8 @@ export interface ResumeBuilderDraft {
   projects: ProjectEntry[];
   coreSkills: CoreSkillEntry[];
   personalStrengths: PersonalStrengthEntry[];
+  /** 用户自定义模块（部分岗位要求额外模块），个别条目独立排版 */
+  customSections: CustomModule[];
 }
 
 // ============ Analysis History ============
@@ -318,6 +344,14 @@ export interface InterviewMessage {
   tip?: string;
   score?: number;
   round: number;
+  /** 本轮（assistant 消息）调用的 token / 积分消耗；BYOK 时 costPoints=0 */
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    costPoints: number;
+    isByok: boolean;
+  };
 }
 
 export interface RoundScore {

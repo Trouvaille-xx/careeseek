@@ -1,4 +1,4 @@
-﻿import React from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { TopNav } from './TopNav';
 import { Sidebar } from './Sidebar';
 import { StepProgressBar } from './StepProgressBar';
@@ -12,6 +12,20 @@ interface MainLayoutProps {
 
 export function MainLayout({ children, bare = false }: MainLayoutProps) {
   const { currentStep, setCurrentStep, reset } = useAppStore();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // 桶入工具页后关闭移动端抽屉（含当前步骤变化时）
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [currentStep]);
+
+  // 宽度 ≥1024px（桌面）时自动关闭移动端抽屉
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => { if (mq.matches) setMobileSidebarOpen(false); };
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
 
   // Compute step statuses
   const { analysisStatus } = useAppStore();
@@ -52,9 +66,13 @@ export function MainLayout({ children, bare = false }: MainLayoutProps) {
 
   return (
     <div className="h-screen flex flex-col bg-white dark:bg-neutral-950">
-      <TopNav />
+      <TopNav onMenuClick={() => setMobileSidebarOpen((v) => !v)} />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar onNewAnalysis={handleNewAnalysis} />
+        <Sidebar
+          onNewAnalysis={handleNewAnalysis}
+          mobileOpen={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+        />
         <div className="flex-1 flex flex-col overflow-hidden">
           {currentStep > 0 && (
             <StepProgressBar
@@ -64,7 +82,7 @@ export function MainLayout({ children, bare = false }: MainLayoutProps) {
             />
           )}
           <main className="flex-1 overflow-y-auto scrollbar-thin">
-            <div className={currentStep === -1 || currentStep === -4 ? 'w-full px-6 py-6' : 'max-w-6xl mx-auto px-8 py-8'}>
+            <div className={currentStep === -1 || currentStep === -4 ? 'w-full px-4 sm:px-6 py-6' : 'max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8'}>
               <div className="animate-slide-up" key={currentStep}>
                 {children}
               </div>

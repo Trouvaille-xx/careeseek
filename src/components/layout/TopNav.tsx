@@ -1,15 +1,23 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
+import { Logo } from '@/components/ui/Brand';
 
-export function TopNav() {
+export function TopNav({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
-    <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0 dark:border-neutral-800 dark:bg-neutral-950">
+    <header className="h-14 border-b border-slate-200 bg-white flex items-center justify-between px-4 sm:px-6 shrink-0 dark:border-neutral-800 dark:bg-neutral-950">
       <div className="flex items-center gap-3">
-        <div className="w-7 h-7 rounded-lg bg-primary-600 flex items-center justify-center">
-          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        {/* 移动端汉堡菜单 */}
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden p-1.5 -ml-1.5 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors dark:text-neutral-300 dark:hover:bg-neutral-800"
+          title="菜单"
+          aria-label="打开菜单"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
           </svg>
-        </div>
+        </button>
+        <Logo className="w-5 h-5 text-slate-900 dark:text-neutral-100" />
         <span className="text-base font-semibold text-slate-900 dark:text-neutral-100">CareeSeek</span>
         <span className="text-xs text-slate-400 hidden sm:inline">你的简历助手</span>
       </div>

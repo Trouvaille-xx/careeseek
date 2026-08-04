@@ -20,6 +20,8 @@ import {
   CoreSkillEntry,
   BasicInfoEntry,
   PersonalStrengthEntry,
+  CustomModule,
+  CustomModuleEntry,
   InterviewSession,
   InterviewMessage,
   InterviewReport,
@@ -121,6 +123,12 @@ interface AppStore {
   addPersonalStrength: (entry: PersonalStrengthEntry) => void;
   updatePersonalStrength: (id: string, entry: PersonalStrengthEntry) => void;
   deletePersonalStrength: (id: string) => void;
+  addCustomModule: (module: CustomModule) => void;
+  renameCustomModule: (id: string, title: string) => void;
+  deleteCustomModule: (id: string) => void;
+  addCustomModuleEntry: (moduleId: string, entry: CustomModuleEntry) => void;
+  updateCustomModuleEntry: (moduleId: string, entryId: string, entry: CustomModuleEntry) => void;
+  deleteCustomModuleEntry: (moduleId: string, entryId: string) => void;
   startInterview: (mode: 'real' | 'learning') => void;
   addInterviewMessage: (msg: InterviewMessage) => void;
   updateLastAssistantMessage: (updates: Partial<InterviewMessage>) => void;
@@ -158,6 +166,12 @@ interface AppStore {
   deleteBuilderEntry: (section: BuilderSectionKey, id: string) => void;
   moveBuilderSection: (from: number, to: number) => void;
   toggleBuilderSection: (key: BuilderSectionKey) => void;
+  addCustomSection: (module: CustomModule) => void;
+  renameCustomSection: (id: string, title: string) => void;
+  deleteCustomSection: (id: string) => void;
+  addCustomSectionEntry: (moduleId: string, entry: CustomModuleEntry) => void;
+  updateCustomSectionEntry: (moduleId: string, entryId: string, entry: CustomModuleEntry) => void;
+  deleteCustomSectionEntry: (moduleId: string, entryId: string) => void;
   setBuilderTemplate: (template: BuilderTemplate) => void;
   setBuilderAccentColor: (color: AccentColor) => void;
   setBuilderFontSize: (size: 'small' | 'medium' | 'large') => void;
@@ -178,6 +192,9 @@ interface AppStore {
   /** 设置页当前 tab（账户/AI/偏好/数据） */
   settingsTab: string;
   setSettingsTab: (tab: string) => void;
+  /** 是否已进入过工具（进入后"简历分析"菜单回工作台而非落地页） */
+  landingSeen: boolean;
+  setLandingSeen: (v: boolean) => void;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -250,19 +267,21 @@ const defaultResumeLibrary = (): ResumeLibrary => ({
   projects: [],
   coreSkills: [],
   personalStrengths: [],
+  customModules: [],
 });
 
 /** 旧版 builder 草稿（templateColor）迁移为模板 + 主题色，并补 id/name/updatedAt */
 function normalizeBuilderDraft(d: Partial<ResumeBuilderDraft> | undefined | null): ResumeBuilderDraft | null {
   if (!d) return null;
   const tc = (d as unknown as { templateColor?: 'black' | 'blue' }).templateColor;
+  const customSections = normalizeCustomModules(d.customSections);
   const draft: ResumeBuilderDraft = {
     id: d.id ?? `draft-${Math.random().toString(36).slice(2, 10)}`,
     name: d.name ?? '未命名简历',
     updatedAt: d.updatedAt ?? Date.now(),
     basicInfo: d.basicInfo ?? { name: '', phone: '', email: '', city: '', jobIntent: '', website: '', summary: '' },
     sectionOrder: d.sectionOrder ?? ['education', 'workExperience', 'projects', 'coreSkills', 'personalStrengths'],
-    visibleSections: d.visibleSections ?? { education: true, workExperience: true, projects: true, coreSkills: true, personalStrengths: true },
+    visibleSections: d.visibleSections ?? { education: true, workExperience: true, projects: true, coreSkills: true, personalStrengths: true, custom: customSections.length > 0 },
     template: d.template ?? (tc ? 'classic' : 'classic'),
     accentColor: d.accentColor ?? (tc === 'blue' ? 'blue' : 'slate'),
     fontSize: d.fontSize ?? 'medium',
@@ -271,6 +290,7 @@ function normalizeBuilderDraft(d: Partial<ResumeBuilderDraft> | undefined | null
     projects: d.projects ?? [],
     coreSkills: d.coreSkills ?? [],
     personalStrengths: d.personalStrengths ?? [],
+    customSections,
   };
   return draft;
 }
@@ -284,27 +304,46 @@ function clearStaleLoading(statuses: Record<number, AnalysisStatus>): Record<num
   return out;
 }
 
-/** 旧 WorkExperienceEntry（description 为多行字符串）→ 新结构（responsibilities 数组） */
+/** 旧 WorkExperienceEntry（responsibilities 数组 / description 文本）→ 新结构（description 单个描述，与项目经历一致） */
 function normalizeWorkExperience(raw: unknown): WorkExperienceEntry[] {
   return ((raw as unknown[]) ?? [])
     .filter((item): item is Record<string, unknown> => item !== null && typeof item === 'object')
     .map((item) => {
-      const existing = Array.isArray(item.responsibilities)
+      const bullets = Array.isArray(item.responsibilities)
         ? (item.responsibilities as unknown[]).filter((s): s is string => typeof s === 'string')
-        : undefined;
-      const fromDesc = typeof item.description === 'string'
-        ? item.description.split('\n').map((s) => s.trim()).filter(Boolean)
         : [];
+      const fromDesc = typeof item.description === 'string' ? item.description.trim() : '';
+      // 历史 bullets 逐条合并回单个描述（换行保留，等价于直接粘贴自由文本）
+      const description = fromDesc || bullets.map((s) => s.trim()).filter(Boolean).join('\n');
       return {
         id: typeof item.id === 'string' ? item.id : `w-${Math.random().toString(36).slice(2, 8)}`,
         company: typeof item.company === 'string' ? item.company : '',
         position: typeof item.position === 'string' ? item.position : '',
         startDate: typeof item.startDate === 'string' ? item.startDate : '',
         endDate: typeof item.endDate === 'string' ? item.endDate : '',
-        responsibilities: existing ?? fromDesc,
+        description,
         status: item.status === 'draft' ? 'draft' : 'approved',
       };
     });
+}
+
+/** 自定义模块归一化：字段缺失兜底 */
+function normalizeCustomModules(raw: unknown): CustomModule[] {
+  return ((raw as unknown[]) ?? [])
+    .filter((m): m is Record<string, unknown> => m !== null && typeof m === 'object')
+    .map((m) => ({
+      id: typeof m.id === 'string' ? m.id : `c-${Math.random().toString(36).slice(2, 8)}`,
+      title: typeof m.title === 'string' ? m.title : '自定义模块',
+      entries: Array.isArray(m.entries)
+        ? (m.entries as unknown[]).filter((e): e is Record<string, unknown> => !!e && typeof e === 'object').map((e) => ({
+            id: typeof e.id === 'string' ? e.id : `ce-${Math.random().toString(36).slice(2, 8)}`,
+            title: typeof e.title === 'string' ? e.title : '',
+            detail: typeof e.detail === 'string' ? e.detail : '',
+            description: typeof e.description === 'string' ? e.description : '',
+            status: e.status === 'draft' ? 'draft' : 'approved',
+          }))
+        : [],
+    }));
 }
 
 /** 旧数据/LLM 输出字段缺失兜底 */
@@ -337,6 +376,31 @@ function normalizeOptimizationItems(raw: unknown): OptimizationItem[] {
     }));
 }
 
+/** LLM 输出的 interviewerPersona 可能是对象或字符串，统一为字符串描述 */
+function normalizeInterviewPrep(raw: unknown): InterviewPrep | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const src = raw as Record<string, unknown>;
+  const persona = src.interviewerPersona;
+  let personaText = '';
+  if (typeof persona === 'string') {
+    personaText = persona;
+  } else if (persona && typeof persona === 'object') {
+    const p = persona as Record<string, unknown>;
+    const name = typeof p.name === 'string' ? p.name : '';
+    const title = typeof p.title === 'string' ? p.title : '';
+    const style = typeof p.style === 'string' ? p.style : '';
+    const focus = Array.isArray(p.focusPoints) ? p.focusPoints.filter((x): x is string => typeof x === 'string') : [];
+    personaText = [name, title, style, focus.length > 0 ? '重点关注：' + focus.join('、') : ''].filter(Boolean).join('，');
+  }
+  return {
+    possibleQuestions: Array.isArray(src.possibleQuestions) ? (src.possibleQuestions as InterviewPrep['possibleQuestions']) : [],
+    evidenceToPrepare: Array.isArray(src.evidenceToPrepare) ? (src.evidenceToPrepare as string[]) : [],
+    exaggerationRisks: Array.isArray(src.exaggerationRisks) ? (src.exaggerationRisks as string[]) : [],
+    dataToSupplement: Array.isArray(src.dataToSupplement) ? (src.dataToSupplement as string[]) : [],
+    selfIntroduction: typeof src.selfIntroduction === 'string' ? src.selfIntroduction : '',
+    interviewerPersona: personaText,
+  };
+}
 /** 从任意数据源取业务字段，缺失值兜底为默认 */
 function sanitizeBusiness(d: Record<string, unknown> | undefined): Record<string, unknown> {
   const src = d ?? {};
@@ -350,13 +414,13 @@ function sanitizeBusiness(d: Record<string, unknown> | undefined): Record<string
     optimizationItems: normalizeOptimizationItems(src.optimizationItems),
     optimizationStyle: src.optimizationStyle ?? 'default',
     finalResume: src.finalResume ?? null,
-    interviewPrep: src.interviewPrep ?? null,
+    interviewPrep: normalizeInterviewPrep(src.interviewPrep),
     currentStep: src.currentStep ?? 0,
     analysisStatus: clearStaleLoading({ ...defaultAnalysisStatus, ...((src.analysisStatus as Record<number, AnalysisStatus>) ?? {}) }),
     isAnalyzing: false,
     uploadedJD: src.uploadedJD ?? null,
     uploadedResume: src.uploadedResume ?? null,
-    resumeLibrary: { ...defaultResumeLibrary(), ...((src.resumeLibrary as Partial<ResumeLibrary>) ?? {}), workExperience: normalizeWorkExperience((src.resumeLibrary as Record<string, unknown>)?.workExperience) },
+    resumeLibrary: { ...defaultResumeLibrary(), ...((src.resumeLibrary as Partial<ResumeLibrary>) ?? {}), workExperience: normalizeWorkExperience((src.resumeLibrary as Record<string, unknown>)?.workExperience), customModules: normalizeCustomModules((src.resumeLibrary as Record<string, unknown>)?.customModules) },
     interviewSessions: src.interviewSessions ?? [],
     analysisHistory: src.analysisHistory ?? [],
     applications: src.applications ?? [],
@@ -395,7 +459,7 @@ function builderEdit(
 
 export const useAppStore = create<AppStore>()(
   persist(
-    (set, get) => ({
+    (set, get): AppStore => ({
       currentStep: 0,
       userInput: { ...defaultInput },
       analysisStatus: { ...defaultAnalysisStatus },
@@ -409,7 +473,7 @@ export const useAppStore = create<AppStore>()(
       optimizationStyle: 'default',
       finalResume: null,
       interviewPrep: null,
-      resumeLibrary: { basicInfo: null, education: [], workExperience: [], projects: [], coreSkills: [], personalStrengths: [] },
+      resumeLibrary: { basicInfo: null, education: [], workExperience: [], projects: [], coreSkills: [], personalStrengths: [], customModules: [] },
       interviewSessions: [],
       currentInterviewId: null,
       interviewLoading: false,
@@ -442,6 +506,8 @@ export const useAppStore = create<AppStore>()(
       setQuotaError: (q) => set({ quotaError: q }),
       settingsTab: 'account',
       setSettingsTab: (tab) => set({ settingsTab: tab }),
+      landingSeen: false,
+      setLandingSeen: (v) => set({ landingSeen: v }),
 
       setUserInput: (input) =>
         set((s) => ({ userInput: { ...s.userInput, ...input } })),
@@ -512,7 +578,7 @@ export const useAppStore = create<AppStore>()(
 
       setFinalResume: (resume) => set({ finalResume: resume }),
 
-      setInterviewPrep: (prep) => set({ interviewPrep: prep }),
+      setInterviewPrep: (prep) => set({ interviewPrep: normalizeInterviewPrep(prep as unknown) }),
 
       setIsAnalyzing: (v) => set({ isAnalyzing: v }),
 
@@ -706,6 +772,28 @@ export const useAppStore = create<AppStore>()(
       updatePersonalStrength: (id, entry) => set((s) => ({ resumeLibrary: { ...s.resumeLibrary, personalStrengths: s.resumeLibrary.personalStrengths.map((e) => e.id === id ? entry : e) } })),
       deletePersonalStrength: (id) => set((s) => ({ resumeLibrary: { ...s.resumeLibrary, personalStrengths: s.resumeLibrary.personalStrengths.filter((e) => e.id !== id) } })),
 
+      addCustomModule: (module) => set((s) => ({ resumeLibrary: { ...s.resumeLibrary, customModules: [...s.resumeLibrary.customModules, module] } })),
+      renameCustomModule: (id, title) => set((s) => ({ resumeLibrary: { ...s.resumeLibrary, customModules: s.resumeLibrary.customModules.map((m) => m.id === id ? { ...m, title } : m) } })),
+      deleteCustomModule: (id) => set((s) => ({ resumeLibrary: { ...s.resumeLibrary, customModules: s.resumeLibrary.customModules.filter((m) => m.id !== id) } })),
+      addCustomModuleEntry: (moduleId, entry) => set((s) => ({
+        resumeLibrary: {
+          ...s.resumeLibrary,
+          customModules: s.resumeLibrary.customModules.map((m) => m.id === moduleId ? { ...m, entries: [...m.entries, entry] } : m),
+        },
+      })),
+      updateCustomModuleEntry: (moduleId, entryId, entry) => set((s) => ({
+        resumeLibrary: {
+          ...s.resumeLibrary,
+          customModules: s.resumeLibrary.customModules.map((m) => m.id === moduleId ? { ...m, entries: m.entries.map((e) => e.id === entryId ? entry : e) } : m),
+        },
+      })),
+      deleteCustomModuleEntry: (moduleId, entryId) => set((s) => ({
+        resumeLibrary: {
+          ...s.resumeLibrary,
+          customModules: s.resumeLibrary.customModules.map((m) => m.id === moduleId ? { ...m, entries: m.entries.filter((e) => e.id !== entryId) } : m),
+        },
+      })),
+
       startInterview: (mode) => set((s) => {
         const id = Date.now().toString(36);
         const session: InterviewSession = {
@@ -842,18 +930,20 @@ export const useAppStore = create<AppStore>()(
         const s = useAppStore.getState();
         const lib = s.resumeLibrary;
         const blank: BasicInfoEntry = { name: '', phone: '', email: '', city: '', jobIntent: '', website: '', summary: '' };
+        const customSections = lib.customModules.map((m) => ({ id: m.id, title: m.title, entries: m.entries.map((e) => ({ ...e })) }));
         const draft: ResumeBuilderDraft = {
           id: `draft-${Math.random().toString(36).slice(2, 10)}`,
           name: `简历 ${s.builderDrafts.length + 1}`,
           updatedAt: Date.now(),
           basicInfo: lib.basicInfo ? { ...lib.basicInfo } : blank,
-          sectionOrder: ['education', 'workExperience', 'projects', 'coreSkills', 'personalStrengths'],
+          sectionOrder: ['education', 'workExperience', 'projects', 'coreSkills', 'personalStrengths', ...(customSections.length > 0 ? ['custom' as BuilderSectionKey] : [])],
           visibleSections: {
             education: true,
             workExperience: true,
             projects: true,
             coreSkills: true,
             personalStrengths: true,
+            custom: customSections.length > 0,
           },
           template: 'classic',
           accentColor: 'slate',
@@ -863,6 +953,7 @@ export const useAppStore = create<AppStore>()(
           projects: lib.projects.map((e) => ({ ...e })),
           coreSkills: lib.coreSkills.map((e) => ({ ...e })),
           personalStrengths: lib.personalStrengths.map((e) => ({ ...e })),
+          customSections,
         };
         set({
           resumeBuilder: draft,
@@ -911,6 +1002,7 @@ export const useAppStore = create<AppStore>()(
             projects: src.projects.map((e) => ({ ...e })),
             coreSkills: src.coreSkills.map((e) => ({ ...e })),
             personalStrengths: src.personalStrengths.map((e) => ({ ...e })),
+            customSections: src.customSections.map((m) => ({ ...m, entries: m.entries.map((e) => ({ ...e })) })),
             sectionOrder: [...src.sectionOrder],
             visibleSections: { ...src.visibleSections },
           };
@@ -938,13 +1030,64 @@ export const useAppStore = create<AppStore>()(
         set((s) => builderEdit(s, (d) => ({ ...d, basicInfo: { ...d.basicInfo, ...info } }))),
 
       updateBuilderEntry: (section, id, entry) =>
-        set((s) => builderEdit(s, (d) => ({ ...d, [section]: d[section].map((e) => (e.id === id ? entry : e)) }))),
+        set((s) => builderEdit(s, (d) => {
+          const list = (d as unknown as Record<string, unknown[]>)[section] as Array<{ id: string }>;
+          return { ...d, [section]: (list ?? []).map((e) => (e.id === id ? entry : e)) } as ResumeBuilderDraft;
+        })),
 
       addBuilderEntry: (section, entry) =>
-        set((s) => builderEdit(s, (d) => ({ ...d, [section]: [...d[section], entry] }))),
+        set((s) => builderEdit(s, (d) => {
+          const list = (d as unknown as Record<string, unknown[]>)[section] as unknown[];
+          return { ...d, [section]: [...(list ?? []), entry] } as ResumeBuilderDraft;
+        })),
 
       deleteBuilderEntry: (section, id) =>
-        set((s) => builderEdit(s, (d) => ({ ...d, [section]: d[section].filter((e) => e.id !== id) }))),
+        set((s) => builderEdit(s, (d) => {
+          const list = (d as unknown as Record<string, unknown[]>)[section] as { id: string }[];
+          return { ...d, [section]: (list ?? []).filter((e) => e.id !== id) } as ResumeBuilderDraft;
+        })),
+
+      addCustomSection: (module) =>
+        set((s) => builderEdit(s, (d) => ({
+          ...d,
+          customSections: [...d.customSections, module],
+          sectionOrder: d.sectionOrder.includes('custom') ? d.sectionOrder : [...d.sectionOrder, 'custom'],
+          visibleSections: { ...d.visibleSections, custom: true },
+        }))),
+
+      renameCustomSection: (id, title) =>
+        set((s) => builderEdit(s, (d) => ({
+          ...d,
+          customSections: d.customSections.map((m) => (m.id === id ? { ...m, title } : m)),
+        }))),
+
+      deleteCustomSection: (id) =>
+        set((s) => builderEdit(s, (d) => {
+          const customSections = d.customSections.filter((m) => m.id !== id);
+          return {
+            ...d,
+            customSections,
+            sectionOrder: customSections.length > 0 ? d.sectionOrder : d.sectionOrder.filter((k) => k !== 'custom'),
+          };
+        })),
+
+      addCustomSectionEntry: (moduleId, entry) =>
+        set((s) => builderEdit(s, (d) => ({
+          ...d,
+          customSections: d.customSections.map((m) => (m.id === moduleId ? { ...m, entries: [...m.entries, entry] } : m)),
+        }))),
+
+      updateCustomSectionEntry: (moduleId, entryId, entry) =>
+        set((s) => builderEdit(s, (d) => ({
+          ...d,
+          customSections: d.customSections.map((m) => (m.id === moduleId ? { ...m, entries: m.entries.map((e) => (e.id === entryId ? entry : e)) } : m)),
+        }))),
+
+      deleteCustomSectionEntry: (moduleId, entryId) =>
+        set((s) => builderEdit(s, (d) => ({
+          ...d,
+          customSections: d.customSections.map((m) => (m.id === moduleId ? { ...m, entries: m.entries.filter((e) => e.id !== entryId) } : m)),
+        }))),
 
       moveBuilderSection: (from, to) =>
         set((s) =>
@@ -984,6 +1127,7 @@ export const useAppStore = create<AppStore>()(
             projects: lib.projects.map((e) => ({ ...e })),
             coreSkills: lib.coreSkills.map((e) => ({ ...e })),
             personalStrengths: lib.personalStrengths.map((e) => ({ ...e })),
+            customSections: lib.customModules.map((m) => ({ id: m.id, title: m.title, entries: m.entries.map((e) => ({ ...e })) })),
           };
           return {
             resumeBuilder: draft,

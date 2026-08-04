@@ -1,5 +1,6 @@
 ﻿import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
+import { Logo } from '@/components/ui/Brand';
 import { PlansDialog } from '@/components/ui/PlansDialog';
 import { track } from '@/services/tracker';
 import { useState } from 'react';
@@ -13,7 +14,7 @@ export function LandingPage() {
   const [showPlans, setShowPlans] = useState(false);
 
   const handleStart = () => {
-    track('input_submit', {});
+    useAppStore.getState().setLandingSeen(true);
     if (auth.token) {
       useAppStore.getState().newAnalysis();
     } else {
@@ -32,11 +33,7 @@ export function LandingPage() {
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-neutral-950/80 backdrop-blur border-b border-slate-100 dark:border-neutral-800">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary-100 dark:bg-neutral-700 flex items-center justify-center">
-              <svg className="w-4 h-4 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
+            <Logo className="w-5 h-5 text-slate-900 dark:text-neutral-100" />
             <span className="text-sm font-semibold text-slate-900 dark:text-neutral-100">CareeSeek</span>
           </div>
           <div className="flex items-center gap-2">
@@ -54,7 +51,7 @@ export function LandingPage() {
                 进入工作台
               </button>
             ) : (
-              <Button size="sm" onClick={() => setCurrentStep(-5)}>
+              <Button size="sm" onClick={() => { useAppStore.getState().setLandingSeen(true); setCurrentStep(-5); }}>
                 登录 / 注册
               </Button>
             )}
@@ -173,13 +170,13 @@ export function LandingPage() {
             <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] text-white bg-primary-500 px-2 py-0.5 rounded-full">最受欢迎</span>
             <h3 className="text-sm font-medium text-slate-900 dark:text-neutral-100">Pro</h3>
             <p className="text-2xl font-bold text-slate-900 dark:text-neutral-100 mt-2">¥19<span className="text-xs text-slate-400 font-normal">/月</span></p>
-            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 mb-4">30000 积分</p>
+            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 mb-4">5000 积分</p>
             <p className="text-xs text-slate-500 dark:text-neutral-400">典型求职季用量 5 倍余量<br />多岗位并行分析</p>
           </div>
           <div className="bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-neutral-700 p-6 text-center">
             <h3 className="text-sm font-medium text-slate-900 dark:text-neutral-100">Power</h3>
             <p className="text-2xl font-bold text-slate-900 dark:text-neutral-100 mt-2">¥49<span className="text-xs text-slate-400 font-normal">/月</span></p>
-            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 mb-4">100000 积分</p>
+            <p className="text-xs text-slate-500 dark:text-neutral-400 mt-1 mb-4">50000 积分</p>
             <p className="text-xs text-slate-500 dark:text-neutral-400">重度使用不限量迭代<br />适合长期多目标求职</p>
           </div>
         </div>

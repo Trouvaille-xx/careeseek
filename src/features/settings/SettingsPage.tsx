@@ -152,23 +152,25 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="flex gap-6 items-start">
-      {/* Left: pure tab menu */}
-      <div className="w-52 shrink-0 rounded-xl border border-slate-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-800/60">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => switchTab(t.key)}
-            className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-              tab === t.key
-                ? 'bg-primary-50 text-primary-700 font-medium dark:bg-neutral-700 dark:text-neutral-100'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-neutral-400 dark:hover:bg-neutral-700/60 dark:hover:text-neutral-200'
-            }`}
-          >
-            {t.icon}
-            {t.label}
-          </button>
-        ))}
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 items-stretch lg:items-start">
+      {/* Left: tab menu（移动端横向滚动，桌面竖排） */}
+      <div className="w-full lg:w-52 shrink-0 lg:rounded-xl lg:border lg:border-slate-200 lg:bg-white lg:p-2 dark:border-neutral-700 dark:bg-neutral-800/60">
+        <div className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-1 lg:pb-0 -mx-1 px-1 lg:mx-0 lg:px-0 scrollbar-thin">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => switchTab(t.key)}
+              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm whitespace-nowrap shrink-0 lg:w-full transition-colors ${
+                tab === t.key
+                  ? 'bg-primary-50 text-primary-700 font-medium dark:bg-neutral-700 dark:text-neutral-100'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-neutral-400 dark:hover:bg-neutral-700/60 dark:hover:text-neutral-200'
+              }`}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Right detail */}
@@ -178,7 +180,7 @@ export function SettingsPage() {
             {feedback.text}
           </div>
         )}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800/60">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 dark:border-neutral-700 dark:bg-neutral-800/60">
           {tab === 'account' && (
             <section className="space-y-5">
               {auth.user ? (
@@ -289,7 +291,7 @@ export function SettingsPage() {
               </p>
 
               {/* 模式切换：BYOK / 积分 */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={() => setLocal({ ...local, aiMode: 'points' })}
                   className={`rounded-xl border p-4 text-left transition-all ${

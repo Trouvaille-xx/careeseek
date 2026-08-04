@@ -23,26 +23,45 @@ function isRetryableError(e: unknown, status?: number): boolean {
 
 /**
  * 决定请求目标与鉴权方式（依据设置页的 AI 模式）：
- * - points 模式（云端积分）：登录 → 走托管代理（getProxyBase()/chat/completions，Bearer 会话 token）
- * - byok 模式（自备 Key）：直连 apiSettings.baseUrl + apiKey
+ * - points 模式（云端积分）：登录 → 走托管代理（getProxyBase()/chat/completions，Bearer 会话 token），按积分计费
+ * - byok 模式（自备 Key）：
+ *   - 已登录 → 走代理透传 key（X-User-Api-Key 头），仅记账不计费，便于统计面板
+ *   - 未登录 → 直连上游（不走代理，无任何统计/配额）
  */
 function resolveEndpoint(): { url: string; headers: Record<string, string>; model: string } {
   const { auth, apiSettings } = useAppStore.getState();
-  if (apiSettings.aiMode === 'points') {
+  const hasKey = Boolean(apiSettings.apiKey?.trim());
+  // 已登录但未配置 API Key → 自动走云端积分模式（无需手动切换）
+  if (apiSettings.aiMode === 'points' || (auth.token && !hasKey)) {
     if (!auth.token) {
       throw new Error('请先登录以使用云端积分（设置 → AI 设置 → 切换为积分模式）');
     }
     return {
       url: `${getProxyBase()}/chat/completions`,
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` },
-      model: 'deepseek-v4-flash',
+      model: 'MiniMax-M3',
     };
   }
   if (!apiSettings.apiKey) {
     throw new Error('请先在设置中配置 API Key，或切换到云端积分模式（登录即可）');
   }
+  const baseUrl = apiSettings.baseUrl.replace(/\/+$/, '');
+  // 已登录 BYOK → 经代理透传 key（仅记账不计费）
+  if (auth.token) {
+    return {
+      url: `${getProxyBase()}/chat/completions`,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${auth.token}`,
+        'X-User-Api-Key': apiSettings.apiKey,
+        'X-User-Base-Url': baseUrl,
+      },
+      model: apiSettings.model || 'gpt-4o',
+    };
+  }
+  // 未登录 BYOK → 直连上游（无任何统计/配额）
   return {
-    url: `${apiSettings.baseUrl.replace(/\/+$/, '')}/chat/completions`,
+    url: `${baseUrl}/chat/completions`,
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiSettings.apiKey}` },
     model: apiSettings.model || 'gpt-4o',
   };
@@ -89,8 +108,22 @@ async function chatCompletion(
       quota
     );
   }
+
+  // 登录态下，调用成功后异步刷新配额（让 UI 实时反映最新积分），
+  // 800ms 节流，避免多次并发请求时反复打 /me。
+  const state = useAppStore.getState();
+  if (state.auth.token && res.ok) {
+    const now = Date.now();
+    if (now - lastQuotaRefreshMs > 800) {
+      lastQuotaRefreshMs = now;
+      void state.refreshAuth().catch(() => { /* 静默：配额刷新失败不影响主流程 */ });
+    }
+  }
+
   return res;
 }
+
+let lastQuotaRefreshMs = 0;
 
 export async function callLLM(systemPrompt: string, userPrompt: string): Promise<string> {
   const messages = [
@@ -110,7 +143,7 @@ export async function callLLM(systemPrompt: string, userPrompt: string): Promise
         throw error;
       }
       const data = await res.json();
-      return data.choices?.[0]?.message?.content || '';
+      return stripThink(data.choices?.[0]?.message?.content || '');
     } catch (e) {
       if (isRetryableError(e as Error) && attempt < MAX_ATTEMPTS) {
         continue;
@@ -130,6 +163,20 @@ export function stripCodeFences(text: string): string {
   const fenceMatch = trimmed.match(/^```[a-zA-Z0-9-]*\s*\n?([\s\S]*?)\n?```$/);
   if (fenceMatch) return fenceMatch[1].trim();
   return trimmed;
+}
+
+/**
+ * 剥掉 <think>...</think> 思维链块（含代码围栏变体 ```think ... ```）。
+ * 即便请求里设了 thinking.disabled，MiniMax 等模型仍可能泄漏思维链文本到 content，
+ * 这里在所有文本返回前统一剥掉，保证 UI / JSON 解析不被干扰。
+ */
+export function stripThink(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/```(?:think|reasoning|reason)\s*\n?[\s\S]*?\n?```/gi, '')
+    .replace(/<think>[\s\S]*$/gi, '')
+    .trim();
 }
 
 export function extractJSON(text: string): string {
@@ -252,10 +299,20 @@ export async function callLLMStream(
   throw new Error('请求失败');
 }
 
+export interface InterviewUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  /** 仅积分模式下计算：floor((prompt+completion)/100)，至少 1；BYOK 时为 0（不计费） */
+  costPoints: number;
+  /** 是否为 BYOK 透传（不计费但仍记录） */
+  isByok: boolean;
+}
+
 export async function callLLMForInterview(
   systemPrompt: string,
   messageHistory: { role: 'system' | 'user' | 'assistant'; content: string }[]
-): Promise<string> {
+): Promise<{ response: string; usage: InterviewUsage | null }> {
   const messages = [
     { role: 'system', content: systemPrompt },
     ...messageHistory,
@@ -273,7 +330,9 @@ export async function callLLMForInterview(
         throw error;
       }
       const data = await res.json();
-      return data.choices?.[0]?.message?.content || '';
+      const response = stripThink(data.choices?.[0]?.message?.content || '');
+      const usage = parseUsageForInterview(data.usage);
+      return { response, usage };
     } catch (e) {
       if (isRetryableError(e as Error) && attempt < MAX_ATTEMPTS) {
         continue;
@@ -282,4 +341,19 @@ export async function callLLMForInterview(
     }
   }
   throw new Error('请求失败');
+}
+
+/** 从 OpenAI 兼容 usage 计算成本（与服务器 plans.ts 规则一致：1 积分 = 100 token，BYOK 不计费） */
+function parseUsageForInterview(raw: unknown): InterviewUsage | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const u = raw as Record<string, unknown>;
+  const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0);
+  const prompt_tokens = num(u.prompt_tokens);
+  const completion_tokens = num(u.completion_tokens);
+  const total_tokens = num(u.total_tokens) || prompt_tokens + completion_tokens;
+  const isByok = !useAppStore.getState().auth.token
+    ? false
+    : Boolean(useAppStore.getState().apiSettings.apiKey?.trim());
+  const costPoints = isByok ? 0 : (total_tokens > 0 ? Math.max(1, Math.floor(total_tokens / 100)) : 0);
+  return { prompt_tokens, completion_tokens, total_tokens, costPoints, isByok };
 }

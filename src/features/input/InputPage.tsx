@@ -98,9 +98,9 @@ export function InputPage() {
       </Card>
 
       {/* Two-column layout */}
-      <div className="flex gap-6">
+      <div className="flex flex-col lg:flex-row gap-6">
         {/* Left column */}
-        <div className="flex flex-col gap-6 w-1/2 shrink-0">
+        <div className="flex flex-col gap-6 w-full lg:w-1/2 lg:shrink-0">
           {/* 基本信息 */}
           <Card padding="lg">
             <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-5 flex items-center gap-2">
@@ -185,7 +185,7 @@ export function InputPage() {
         </div>
 
         {/* Right column */}
-        <div className="flex flex-col gap-6 flex-1 min-w-0">
+        <div className="flex flex-col gap-6 w-full lg:flex-1 lg:min-w-0">
           {/* JD 原文 */}
           <Card padding="lg">
             <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-5 flex items-center gap-2">

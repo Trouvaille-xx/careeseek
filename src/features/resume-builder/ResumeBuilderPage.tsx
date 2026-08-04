@@ -1,10 +1,9 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { ResponsibilitiesEditor } from '@/components/ui/ResponsibilitiesEditor';
-import { exportBuilderJSON, exportBuilderPDF } from '@/services/exportService';
-import type { AccentColor, BuilderSectionKey, BuilderTemplate, EducationEntry, WorkExperienceEntry, ProjectEntry, CoreSkillEntry, PersonalStrengthEntry, ResumeBuilderDraft } from '@/types';
+import { exportBuilderJSON, exportBuilderPDF, exportBuilderDOCX } from '@/services/exportService';
+import type { AccentColor, BuilderSectionKey, BuilderTemplate, EducationEntry, WorkExperienceEntry, ProjectEntry, CoreSkillEntry, PersonalStrengthEntry, CustomModuleEntry, ResumeBuilderDraft } from '@/types';
 
 const SECTION_META: Record<BuilderSectionKey, { title: string; hint: string }> = {
   education: { title: '教育经历', hint: '学校、专业、学历与时间' },
@@ -12,6 +11,7 @@ const SECTION_META: Record<BuilderSectionKey, { title: string; hint: string }> =
   projects: { title: '项目经历', hint: '项目、角色与成果' },
   coreSkills: { title: '专业技能', hint: '技能分类与内容' },
   personalStrengths: { title: '个人优势', hint: '核心亮点与软素质' },
+  custom: { title: '自定义模块', hint: '证书、获奖、语言能力等' },
 };
 
 const TEMPLATE_META: { key: BuilderTemplate; label: string; desc: string }[] = [
@@ -33,7 +33,7 @@ const ACCENT_HEX: Record<AccentColor, string> = Object.fromEntries(ACCENT_META.m
 
 type BuilderEntry = EducationEntry | WorkExperienceEntry | ProjectEntry | CoreSkillEntry | PersonalStrengthEntry;
 
-function genId() { return Math.random().toString(36).slice(2, 10); }
+function genId() { return crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`; }
 
 // ============ 简历列表页 ============
 
@@ -153,7 +153,9 @@ export function ResumeBuilderView() {
   const store = useAppStore();
   const { resumeBuilder } = store;
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [entryDialog, setEntryDialog] = useState<{ section: BuilderSectionKey; entry: BuilderEntry | null } | null>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [entryDialog, setEntryDialog] = useState<{ section: BuilderSectionKey; moduleId?: string; entry: BuilderEntry | CustomModuleEntry | null } | null>(null);
   const [pickDialog, setPickDialog] = useState(false);
   const [dragSection, setDragSection] = useState<BuilderSectionKey | null>(null);
   const [overSection, setOverSection] = useState<BuilderSectionKey | null>(null);
@@ -162,6 +164,16 @@ export function ResumeBuilderView() {
     if (!useAppStore.getState().resumeBuilder) {
       useAppStore.getState().exitBuilder();
     }
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
   if (!resumeBuilder) return null;
@@ -177,9 +189,20 @@ export function ResumeBuilderView() {
     setOverSection(null);
   };
 
-  const handleExport = async (kind: 'pdf' | 'json') => {
+  const handleExport = async (kind: 'pdf' | 'json' | 'docx') => {
     if (kind === 'json') {
       exportBuilderJSON(resumeBuilder);
+      return;
+    }
+    if (kind === 'docx') {
+      setExportingPdf(true);
+      try {
+        await exportBuilderDOCX(resumeBuilder);
+      } catch (e) {
+        console.error('导出 Word 失败:', e);
+      } finally {
+        setExportingPdf(false);
+      }
       return;
     }
     setExportingPdf(true);
@@ -208,6 +231,12 @@ export function ResumeBuilderView() {
           <span className="text-sm font-medium text-slate-700 truncate dark:text-neutral-300">{resumeBuilder.name}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-neutral-500">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 8v8a3 3 0 01-3 3h-4l-4 3v-3H6a3 3 0 01-3-3V8a3 3 0 013-3h12a3 3 0 013 3z" />
+            </svg>
+            已保存 <span className="tabular-nums text-slate-500 dark:text-neutral-400">{new Date(resumeBuilder.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}</span>
+          </span>
           <select
             value={resumeBuilder.template}
             onChange={(e) => store.setBuilderTemplate(e.target.value as BuilderTemplate)}
@@ -242,17 +271,52 @@ export function ResumeBuilderView() {
           <Button variant="ghost" size="sm" onClick={() => {
             if (window.confirm('清空当前制作内容，重新从简历库生成？')) store.resetResumeBuilder();
           }}>重新生成</Button>
-          <select
-            value=""
-            onChange={(e) => { if (e.target.value) handleExport(e.target.value as 'pdf' | 'json'); }}
-            className={`${selectCls} ${exportingPdf ? 'opacity-60' : ''} font-medium text-primary-600 dark:text-primary-400`}
-            disabled={exportingPdf}
-            title="导出"
-          >
-            <option value="" disabled>{exportingPdf ? '生成中…' : '导出 ▼'}</option>
-            <option value="pdf">导出 PDF</option>
-            <option value="json">导出 JSON</option>
-          </select>
+          <div className="relative" ref={exportMenuRef}>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setExportMenuOpen((v) => !v)}
+              disabled={exportingPdf}
+              className={exportingPdf ? 'opacity-60' : ''}
+              title="导出"
+            >
+              {exportingPdf ? '生成中…' : '导出'}
+              <svg className={`w-3.5 h-3.5 transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </Button>
+            {exportMenuOpen && !exportingPdf && (
+              <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-50 animate-fade-in dark:bg-neutral-800 dark:border-neutral-700 dark:shadow-black/40">
+                <button
+                  onClick={() => { handleExport('pdf'); setExportMenuOpen(false); }}
+                  className="flex items-center gap-2.5 w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                >
+                  <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  导出 PDF
+                </button>
+                <button
+                  onClick={() => { handleExport('docx'); setExportMenuOpen(false); }}
+                  className="flex items-center gap-2.5 w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                >
+                  <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  导出 Word
+                </button>
+                <button
+                  onClick={() => { handleExport('json'); setExportMenuOpen(false); }}
+                  className="flex items-center gap-2.5 w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors dark:text-neutral-200 dark:hover:bg-neutral-700/60"
+                >
+                  <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+                  </svg>
+                  导出 JSON
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -263,7 +327,7 @@ export function ResumeBuilderView() {
 
           {resumeBuilder.sectionOrder.map((key, idx) => {
             const meta = SECTION_META[key];
-            const items = resumeBuilder[key];
+            const items = key === 'custom' ? resumeBuilder.customSections : resumeBuilder[key];
             const visible = resumeBuilder.visibleSections[key];
             const isDragging = dragSection === key;
             const isOver = overSection === key && dragSection !== key;
@@ -294,7 +358,7 @@ export function ResumeBuilderView() {
               >
                 {isOver && <div className="absolute -inset-y-1.5 inset-x-0 z-10 border-2 border-dashed border-primary-400 rounded-xl pointer-events-none" />}
                 <Card padding="lg">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-2">
                       <span className="text-slate-300 cursor-grab hover:text-primary-500 transition-colors dark:text-neutral-600" title="拖拽调整模块顺序">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -302,7 +366,7 @@ export function ResumeBuilderView() {
                         </svg>
                       </span>
                       <h3 className="text-sm font-semibold text-slate-900 dark:text-neutral-100">{meta.title}</h3>
-                      <span className="text-[10px] text-slate-400">{meta.hint}</span>
+                      <span className="text-[10px] text-slate-400 hidden sm:inline">{meta.hint}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <button
@@ -335,11 +399,72 @@ export function ResumeBuilderView() {
                     </div>
                   </div>
 
-                  {items.length === 0 ? (
+                  {key === 'custom' ? (
+                    <div className="space-y-3 mt-3">
+                      {resumeBuilder.customSections.length === 0 && (
+                        <p className="text-xs text-slate-400 py-3 text-center">暂无自定义模块，点击下方按钮添加</p>
+                      )}
+                      {resumeBuilder.customSections.map((mod) => (
+                        <div key={mod.id} className="rounded-xl border border-slate-200 dark:border-neutral-600 p-3 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              value={mod.title}
+                              onChange={(e) => store.renameCustomSection(mod.id, e.target.value)}
+                              placeholder="模块标题"
+                              className={'flex-1 min-w-0 px-2 py-1 text-xs rounded-md border border-transparent hover:border-slate-200 focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 bg-transparent dark:text-neutral-200 dark:hover:border-neutral-600'}
+                            />
+                            <button
+                              onClick={() => setEntryDialog({ section: 'custom', moduleId: mod.id, entry: null })}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors dark:hover:bg-neutral-700"
+                              title="添加条目"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            </button>
+                            <button
+                              onClick={() => { if (window.confirm(`删除模块「${mod.title}」？`)) store.deleteCustomSection(mod.id); }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors dark:hover:bg-red-900/30"
+                              title="删除模块"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                          </div>
+                          {mod.entries.length === 0 ? (
+                            <p className="text-[10px] text-slate-400 py-1 text-center">暂无条目</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {mod.entries.map((entry) => (
+                                <div key={entry.id} className="flex items-center justify-between gap-2 p-2 rounded-lg border border-slate-100 hover:border-slate-300 transition-colors dark:border-neutral-700 dark:hover:border-neutral-500">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-slate-800 truncate dark:text-neutral-200">{entry.title || '(未填标题)'}</p>
+                                    {entry.detail && <p className="text-[10px] text-slate-400 truncate">{entry.detail}</p>}
+                                    {entry.description && <p className="text-[10px] text-slate-400 truncate mt-0.5">{entry.description}</p>}
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      onClick={() => setEntryDialog({ section: 'custom', moduleId: mod.id, entry: { ...entry } })}
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors dark:hover:bg-neutral-700"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
+                                    </button>
+                                    <button
+                                      onClick={() => store.deleteCustomSectionEntry(mod.id, entry.id)}
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors dark:hover:bg-red-900/30"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : items.length === 0 ? (
                     <p className="text-xs text-slate-400 py-3 text-center">暂无内容，点击下方按钮添加</p>
                   ) : (
                     <div className="space-y-2 mt-3">
-                      {items.map((entry) => (
+                      {(items as unknown as BuilderEntry[]).map((entry) => (
                         <div key={entry.id} className="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors dark:border-neutral-600 dark:hover:border-neutral-500">
                           <div className="min-w-0">
                             <p className="text-xs font-medium text-slate-800 truncate dark:text-neutral-200">{entrySummary(key, entry)}</p>
@@ -347,6 +472,7 @@ export function ResumeBuilderView() {
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
                             <button
+
                               onClick={() => setEntryDialog({ section: key, entry: { ...entry } })}
                               className="p-1.5 rounded-lg text-slate-400 hover:text-primary-600 hover:bg-primary-50 transition-colors dark:hover:bg-neutral-700"
                             >
@@ -364,12 +490,30 @@ export function ResumeBuilderView() {
                     </div>
                   )}
 
-                  <button
-                    onClick={() => setEntryDialog({ section: key, entry: null })}
-                    className="w-full mt-3 py-2 text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg border border-dashed border-slate-200 hover:border-primary-300 transition-colors dark:text-neutral-400 dark:hover:bg-neutral-700/50 dark:border-neutral-600"
-                  >
-                    + 添加{meta.title}
-                  </button>
+                  {key === 'custom' ? (
+                    <button
+                      onClick={() => {
+                        const lib = useAppStore.getState().resumeLibrary.customModules;
+                        const existing = new Set(resumeBuilder.customSections.map((m) => m.id));
+                        const toAdd = lib.filter((m) => !existing.has(m.id));
+                        if (toAdd.length === 0) {
+                          window.alert('简历库暂无可用自定义模块');
+                          return;
+                        }
+                        toAdd.forEach((m) => store.addCustomSection({ id: m.id, title: m.title, entries: m.entries.map((e) => ({ ...e })) }));
+                      }}
+                      className="w-full mt-3 py-2 text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg border border-dashed border-slate-200 hover:border-primary-300 transition-colors dark:text-neutral-400 dark:hover:bg-neutral-700/50 dark:border-neutral-600"
+                    >
+                      + 从简历库添加模块
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setEntryDialog({ section: key, entry: null })}
+                      className="w-full mt-3 py-2 text-xs text-slate-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg border border-dashed border-slate-200 hover:border-primary-300 transition-colors dark:text-neutral-400 dark:hover:bg-neutral-700/50 dark:border-neutral-600"
+                    >
+                      + 添加{meta.title}
+                    </button>
+                  )}
                 </Card>
               </div>
             );
@@ -395,10 +539,16 @@ export function ResumeBuilderView() {
           entry={entryDialog.entry}
           onClose={() => setEntryDialog(null)}
           onSubmit={(entry) => {
-            if (entryDialog.entry) {
-              store.updateBuilderEntry(entryDialog.section, entryDialog.entry.id, entry);
+            if (entryDialog.section === 'custom' && entryDialog.moduleId) {
+              if (entryDialog.entry && entryDialog.entry !== null) {
+                store.updateCustomSectionEntry(entryDialog.moduleId, entryDialog.entry.id, entry as CustomModuleEntry);
+              } else {
+                store.addCustomSectionEntry(entryDialog.moduleId, entry as CustomModuleEntry);
+              }
+            } else if (entryDialog.entry) {
+              store.updateBuilderEntry(entryDialog.section as 'education' | 'workExperience' | 'projects' | 'coreSkills' | 'personalStrengths', entryDialog.entry.id, entry as BuilderEntry);
             } else {
-              store.addBuilderEntry(entryDialog.section, entry);
+              store.addBuilderEntry(entryDialog.section as 'education' | 'workExperience' | 'projects' | 'coreSkills' | 'personalStrengths', entry as BuilderEntry);
             }
             setEntryDialog(null);
           }}
@@ -430,7 +580,7 @@ function BasicInfoCard() {
     <Card padding="lg">
       <h3 className="text-sm font-semibold text-slate-900 mb-1 dark:text-neutral-100">个人信息</h3>
       <p className="text-[10px] text-slate-400 mb-3">填写后显示在简历顶部</p>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {fields.map((f) => (
           <div key={f.key} className={f.full ? 'col-span-2' : ''}>
             <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-neutral-400">{f.label}</label>
@@ -466,6 +616,7 @@ function entrySummary(section: BuilderSectionKey, entry: BuilderEntry): string {
     case 'projects': return (entry as ProjectEntry).name || '(未填项目名)';
     case 'coreSkills': return (entry as CoreSkillEntry).category || (entry as CoreSkillEntry).skills || '(未填)';
     case 'personalStrengths': return (entry as PersonalStrengthEntry).content || '(未填)';
+    case 'custom': return (entry as { title?: string }).title || '(未填标题)';
   }
 }
 
@@ -485,6 +636,7 @@ function entryMeta(section: BuilderSectionKey, entry: BuilderEntry): string {
     }
     case 'coreSkills': return (entry as CoreSkillEntry).skills;
     case 'personalStrengths': return '';
+    case 'custom': return (entry as { detail?: string }).detail ?? '';
   }
 }
 
@@ -497,9 +649,9 @@ const DATE_FIELDS: { key: 'startDate' | 'endDate'; label: string }[] = [
 
 function EntryFormDialog({ section, entry, onClose, onSubmit }: {
   section: BuilderSectionKey;
-  entry: BuilderEntry | null;
+  entry: BuilderEntry | CustomModuleEntry | null;
   onClose: () => void;
-  onSubmit: (entry: BuilderEntry) => void;
+  onSubmit: (entry: BuilderEntry | CustomModuleEntry) => void;
 }) {
   const [form, setForm] = useState<Record<string, unknown>>(() => {
     if (!entry) return {};
@@ -521,13 +673,15 @@ function EntryFormDialog({ section, entry, onClose, onSubmit }: {
     fields.push({ key: 'name', label: '项目名称' }, { key: 'role', label: '担任角色' });
   } else if (section === 'coreSkills') {
     fields.push({ key: 'category', label: '分类（如：前端）' }, { key: 'skills', label: '技能内容', textarea: true });
+  } else if (section === 'custom') {
+    fields.push({ key: 'title', label: '标题' }, { key: 'description', label: '描述', textarea: true });
   } else {
     fields.push({ key: 'content', label: '优势内容', textarea: true });
   }
-  const descLabel = section === 'workExperience' ? null : section === 'projects' ? '项目职责与成果' : section === 'education' ? '在校表现与荣誉' : null;
+  const descLabel = section === 'education' ? '在校表现与荣誉' : section === 'workExperience' ? '工作职责与成果' : section === 'projects' ? '项目职责与成果' : null;
 
   const valid = (() => {
-    const required = section === 'personalStrengths' ? 'content' : section === 'coreSkills' ? 'skills' : section === 'education' ? 'school' : section === 'workExperience' ? 'company' : 'name';
+    const required = section === 'personalStrengths' ? 'content' : section === 'coreSkills' ? 'skills' : section === 'custom' ? 'title' : section === 'education' ? 'school' : section === 'workExperience' ? 'company' : 'name';
     return str(required).trim().length > 0;
   })();
 
@@ -551,7 +705,7 @@ function EntryFormDialog({ section, entry, onClose, onSubmit }: {
               )}
             </div>
           ))}
-          {section !== 'coreSkills' && section !== 'personalStrengths' && (
+          {(section === 'education' || section === 'workExperience' || section === 'projects') && (
             <div className="grid grid-cols-2 gap-3">
               {DATE_FIELDS.map((d) => (
                 <div key={d.key}>
@@ -561,15 +715,10 @@ function EntryFormDialog({ section, entry, onClose, onSubmit }: {
               ))}
             </div>
           )}
-          {section === 'workExperience' ? (
-            <ResponsibilitiesEditor
-              items={Array.isArray(form.responsibilities) ? (form.responsibilities as string[]) : []}
-              onChange={(items) => setForm((f) => ({ ...f, responsibilities: items }))}
-            />
-          ) : descLabel ? (
+          {descLabel ? (
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1 dark:text-neutral-400">{descLabel}</label>
-              <textarea value={str('description')} onChange={(e) => set('description', e.target.value)} rows={4} placeholder="每行一条，用「- 」开头更清晰" className={inputCls + ' resize-none'} />
+              <textarea value={str('description')} onChange={(e) => set('description', e.target.value)} rows={4} placeholder="直接填写描述，无需拆分列表；支持多行，用「- 」开头仅作视觉分隔" className={inputCls + ' resize-none'} />
             </div>
           ) : null}
         </div>
@@ -581,7 +730,7 @@ function EntryFormDialog({ section, entry, onClose, onSubmit }: {
             onClick={() => onSubmit({
               ...(entry ?? { id: genId(), status: 'draft' as const }),
               ...form,
-            } as BuilderEntry)}
+            } as BuilderEntry | CustomModuleEntry)}
           >
             保存
           </Button>
@@ -594,7 +743,7 @@ function EntryFormDialog({ section, entry, onClose, onSubmit }: {
 // ============ Pick from library ============
 
 function PickFromLibraryDialog({ onClose }: { onClose: () => void }) {
-  const { resumeBuilder, resumeLibrary, addBuilderEntry } = useAppStore();
+  const { resumeBuilder, resumeLibrary, addBuilderEntry, addCustomSection } = useAppStore();
   if (!resumeBuilder) return null;
 
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -606,10 +755,12 @@ function PickFromLibraryDialog({ onClose }: { onClose: () => void }) {
     { key: 'personalStrengths', items: resumeLibrary.personalStrengths },
   ];
 
-  const existingIds = new Set(Object.values(resumeBuilder).flatMap((v) => Array.isArray(v) ? v.map((e: BuilderEntry) => e.id) : []));
+  const existingEntries = new Set(Object.values(resumeBuilder).flatMap((v) => Array.isArray(v) ? v.map((e: BuilderEntry) => e.id) : []));
+  const existingModules = new Set(resumeBuilder.customSections.map((m) => m.id));
   const available = allSections
-    .map((s) => ({ ...s, items: s.items.filter((i) => !existingIds.has(i.id)) }))
+    .map((s) => ({ ...s, items: s.items.filter((i) => !existingEntries.has(i.id)) }))
     .filter((s) => s.items.length > 0);
+  const availableModules = resumeLibrary.customModules.filter((m) => !existingModules.has(m.id));
   const checkedCount = Object.values(checked).filter(Boolean).length;
 
   return (
@@ -623,10 +774,11 @@ function PickFromLibraryDialog({ onClose }: { onClose: () => void }) {
         </div>
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           <p className="text-xs text-slate-500 dark:text-neutral-400">勾选简历库中的条目加入当前简历（已在简历中的条目不重复显示）。</p>
-          {available.length === 0 ? (
+          {available.length === 0 && availableModules.length === 0 ? (
             <p className="text-sm text-slate-400 text-center py-6">简历库中暂无可用条目</p>
           ) : (
-            available.map((s) => (
+            <>
+            {available.map((s) => (
               <div key={s.key}>
                 <h4 className="text-xs font-semibold text-slate-700 mb-2 dark:text-neutral-300">{SECTION_META[s.key].title}</h4>
                 <div className="space-y-1.5">
@@ -646,7 +798,28 @@ function PickFromLibraryDialog({ onClose }: { onClose: () => void }) {
                   ))}
                 </div>
               </div>
-            ))
+            ))}
+              {availableModules.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-700 mb-2 dark:text-neutral-300">自定义模块</h4>
+                  <div className="space-y-1.5">
+                    {availableModules.map((mod) => (
+                      <label key={mod.id} className="flex items-start gap-2.5 p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer dark:border-neutral-600 dark:hover:border-neutral-500">
+                        <input
+                          type="checkbox"
+                          checked={!!checked[`mod:${mod.id}`]}
+                          onChange={(e) => setChecked((c) => ({ ...c, [`mod:${mod.id}`]: e.target.checked }))}
+                          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500/30"
+                        />
+                        <span className="text-xs text-slate-700 leading-relaxed line-clamp-2 dark:text-neutral-300">
+                          {mod.title}（{mod.entries.length} 条）
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
         <div className="flex items-center justify-end gap-3 px-6 pb-6 shrink-0">
@@ -659,6 +832,9 @@ function PickFromLibraryDialog({ onClose }: { onClose: () => void }) {
                 s.items.forEach((item) => {
                   if (checked[item.id]) addBuilderEntry(s.key, { ...item });
                 });
+              });
+              availableModules.forEach((mod) => {
+                if (checked[`mod:${mod.id}`]) addCustomSection({ id: mod.id, title: mod.title, entries: mod.entries.map((e) => ({ ...e })) });
               });
               onClose();
             }}
@@ -673,44 +849,251 @@ function PickFromLibraryDialog({ onClose }: { onClose: () => void }) {
 
 // ============ Preview (multi-template) ============
 
-function ResumePreview({ draft }: { draft: ResumeBuilderDraft }) {
+const A4_W = 420;
+const A4_H = 594;
+const SHEET_PAD = 36;
+// 页内可放置"原子"的预算：A4 高减去上下页边距
+const PAGE_BUDGET = A4_H - SHEET_PAD * 2;
+
+/**
+ * 用真实测量把超长正文切成若干"恰好填满一页"的分片。
+ * 隐藏探针与正文同字体/同宽/同换行，对前缀子串二分找"高度 <= cap"的最大长度，
+ * 精确落在真实折行边界。返回 [{end,h}]，h 为该分片正文的实际高度。
+ */
+type BodySlice = { end: number; h: number };
+
+function makeProbe(): HTMLSpanElement {
+  const s = document.createElement('span');
+  s.style.cssText =
+    'position:absolute;left:-99999px;top:0;visibility:hidden;white-space:pre-wrap;display:block;';
+  document.body.appendChild(s);
+  return s;
+}
+
+function splitEntryBody(
+  body: string,
+  contentW: number,
+  baseSize: number,
+  lineHeight: number,
+  budget: number,
+  headH: number,
+): BodySlice[] {
+  const probe = makeProbe();
+  probe.style.width = `${contentW}px`;
+  probe.style.fontSize = `${baseSize}px`;
+  probe.style.lineHeight = `${lineHeight}px`;
+  const bounds = (text: string, cap: number) => {
+    let lo = 0, hi = text.length, best = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      probe.textContent = text.slice(0, mid);
+      if (probe.offsetHeight <= cap) { best = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    return best;
+  };
+  const slices: BodySlice[] = [];
+  let start = 0;
+  let cap = budget - headH;
+  while (start < body.length) {
+    const remaining = body.slice(start);
+    probe.textContent = remaining;
+    const totalH = probe.offsetHeight;
+    const len = totalH <= cap ? remaining.length : Math.max(1, bounds(remaining, cap));
+    probe.textContent = remaining.slice(0, len);
+    slices.push({ end: start + len, h: probe.offsetHeight });
+    start += len;
+    cap = budget;
+  }
+  document.body.removeChild(probe);
+  return slices;
+}
+
+// 一个分页原子：标题(标题下面至少留一条目) / 条目。head 也在其中。
+type Atom = { kind: 'head' | 'title' | 'entry'; el: React.ReactElement; data?: { section: BuilderSectionKey; item: BuilderEntry; baseSize: string } };
+
+function buildVisibleOrder(draft: ResumeBuilderDraft): BuilderSectionKey[] {
+  return draft.sectionOrder.filter(
+    (k) => draft.visibleSections[k] && (k === 'custom' ? draft.customSections.length > 0 : (draft[k] as unknown[]).length > 0),
+  );
+}
+
+/**
+ * 把模板展开为一串可分页原子（head + 标题 + 条目），
+ * 这样长章节可以在"条目之间"跨页，而不是整段搬走。
+ */
+function buildAtoms(draft: ResumeBuilderDraft): Atom[] {
   const accent = ACCENT_HEX[draft.accentColor] ?? ACCENT_HEX.slate;
   const baseSize = draft.fontSize === 'small' ? '10px' : draft.fontSize === 'large' ? '12px' : '11px';
   const titleSize = draft.fontSize === 'small' ? '12px' : draft.fontSize === 'large' ? '15px' : '13px';
   const nameSize = draft.fontSize === 'small' ? '20px' : draft.fontSize === 'large' ? '26px' : '23px';
+  const visibleOrder = buildVisibleOrder(draft);
+  const ctx: PreviewCtx = { draft, accent, baseSize, titleSize, nameSize, visibleOrder };
 
-  const visibleOrder = draft.sectionOrder.filter((k) => draft.visibleSections[k] && draft[k].length > 0);
+  if (draft.template === 'sidebar') {
+    return [{ kind: 'head', el: <SidebarPreview key="sb" {...ctx} /> }];
+  }
+
+  const atoms: Atom[] = [];
+  const head = draft.template === 'header'
+    ? <HeaderHead key="head" {...ctx} />
+    : draft.template === 'minimal'
+      ? <MinimalHead key="head" {...ctx} />
+      : <ClassicHead key="head" {...ctx} />;
+  atoms.push({ el: head, kind: 'head' });
+
+  for (const section of visibleOrder) {
+    if (section === 'custom') {
+      for (const mod of draft.customSections) {
+        atoms.push({ kind: 'title', el: <SectionTitle key={`t-${mod.id}`} section="custom" accent={accent} titleSize={titleSize} title={mod.title} /> });
+        for (const item of mod.entries) {
+          atoms.push({ kind: 'entry', el: <EntryRow key={item.id} section="custom" item={item as unknown as BuilderEntry} baseSize={baseSize} />, data: { section: 'custom', item: item as unknown as BuilderEntry, baseSize } });
+        }
+      }
+      continue;
+    }
+    atoms.push({ kind: 'title', el: <SectionTitle key={`t-${section}`} section={section} accent={accent} titleSize={titleSize} /> });
+    for (const item of (draft[section] as BuilderEntry[])) {
+      atoms.push({ kind: 'entry', el: <EntryRow key={item.id} section={section} item={item} baseSize={baseSize} />, data: { section, item, baseSize } });
+    }
+  }
+  return atoms;
+}
+
+/**
+ * 离屏渲染所有原子，测每个原子的真实"前进距离"(含底部间隙)，
+ * 再按页高贪心装箱。标题与其后至少一个条目同页，避免标题孤立在页底。
+ */
+function PaginatedResume({ atoms }: { atoms: Atom[] }) {
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [sheets, setSheets] = useState<React.ReactElement[][]>([]);
+
+  useLayoutEffect(() => {
+    const host = measureRef.current;
+    if (!host) return;
+    const nodes = Array.from(host.children) as HTMLElement[];
+    const positions = nodes.map((n) => n.offsetTop);
+    // 前进间隔 = 下一个原子顶 - 本原子顶（含 margin）。最后一项用手动量。
+    const advances = nodes.map((n, i) =>
+      i < nodes.length - 1 ? Math.max(0, positions[i + 1] - positions[i]) : n.offsetHeight,
+    );
+
+    // 内容区宽 = 纸张宽 - 两侧留白（与 .sheet padding 一致）
+    const innerW = A4_W - SHEET_PAD * 2;
+    const baseSxMap: Record<string, number> = { small: 10, default: 11, large: 12 };
+
+    // 线性"块"序列：普通原子带上测量高度；超长条目精确展开为多个分片
+    type Blk = { el: React.ReactElement; h: number; kind: 'head' | 'title' | 'entry' };
+    const seq: Blk[] = [];
+
+    for (let i = 0; i < atoms.length; i++) {
+      const atom = atoms[i];
+      const h = advances[i] ?? 0;
+      const isOver = atom.kind === 'entry' && h > PAGE_BUDGET && atom.data && atom.data.item;
+      if (!isOver) {
+        seq.push({ el: atom.el, h, kind: atom.kind });
+        continue;
+      }
+      const { section, item, baseSize } = atom.data!;
+      const { left, right, body } = previewLines(section, item);
+      const baseSx = baseSxMap[baseSize] ?? 11;
+      if (!body) { seq.push({ el: atom.el, h, kind: 'entry' }); continue; }
+      // 抬头高度：条目总高 - 正文占高
+      const p = nodes[i].querySelector('p');
+      const headH = p ? Math.max(8, nodes[i].offsetHeight - p.offsetHeight) : 24;
+      const slices = splitEntryBody(body, innerW, baseSx, baseSx * 1.625, PAGE_BUDGET, Math.min(headH, PAGE_BUDGET - 8));
+      slices.forEach((s, k) => {
+        const start = k === 0 ? 0 : slices[k - 1].end;
+        const piece = body.slice(start, s.end);
+        const isLast = s.end >= body.length;
+        seq.push({
+          el: (
+            <div key={`${item.id}-sp-${k}`} className="mb-3">
+              {k === 0 && (
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold text-slate-800" style={{ fontSize: baseSize }}>{left}</span>
+                  {right && <span className="text-slate-500 shrink-0" style={{ fontSize: baseSize }}>{right}</span>}
+                </div>
+              )}
+              <p className="text-slate-600 whitespace-pre-wrap leading-relaxed mt-0.5" style={{ fontSize: baseSize }}>{piece}</p>
+              {!isLast && <p className="text-[10px] text-slate-300 mt-1">（未完·续下页）</p>}
+            </div>
+          ),
+          h: (k === 0 ? headH : 0) + s.h + (!isLast ? 16 : 0),
+          kind: 'entry',
+        });
+      });
+    }
+
+    const packed: React.ReactElement[][] = [];
+    let cur: React.ReactElement[] = [];
+    let curH = 0;
+    const push = () => { if (cur.length) { packed.push(cur); cur = []; curH = 0; } };
+
+    for (let i = 0; i < seq.length; i++) {
+      const blk = seq[i];
+      const h = blk.h || 0;
+      const over = curH + h > PAGE_BUDGET;
+      if (!cur.length && over) { cur.push(blk.el); curH = h; continue; }
+      if (over && cur.length) push();
+      // 标题不要孤悬页底：标题后至少跟一个条目（否则标题单独挪下页）
+      if (blk.kind === 'title' && cur.length === 0 && i + 1 < seq.length) {
+        const next = seq[i + 1];
+        const nh = next.h || 0;
+        cur.push(blk.el); curH = h;
+        if (curH + nh <= PAGE_BUDGET) { cur.push(next.el); curH += nh; i++; continue; }
+        // 标题 + 其条目无法同页 → 整组挪下一页
+        push();
+        cur.push(blk.el); curH = h;
+        cur.push(next.el); curH += nh; i++;
+        continue;
+      }
+      cur.push(blk.el);
+      curH += h;
+    }
+    push();
+    setSheets(packed);
+  }, [atoms]);
+
+  return (
+    <>
+      <div ref={measureRef} aria-hidden style={{ position: 'absolute', left: -99999, top: 0, width: A4_W, padding: SHEET_PAD, boxSizing: 'border-box', pointerEvents: 'none' }}>
+        {atoms.map((a, i) => <div key={i} className="atom-w">{a.el}</div>)}
+      </div>
+      <div className="flex flex-col items-center gap-6" style={{ fontFamily: 'inherit' }}>
+        {sheets.map((sheet, i) => (
+          <div key={i} className="relative bg-white rounded-lg shadow-md flex-none" style={{ width: A4_W, minHeight: A4_H, padding: SHEET_PAD, boxSizing: 'border-box' }}>
+            {sheet}
+            <div className="absolute inset-x-0 bottom-2 text-center text-[9px] text-slate-300 dark:text-neutral-500 select-none" style={{ pointerEvents: 'none' }}>
+              第 {i + 1} / {sheets.length} 页 · A4
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+export function ResumePreview({ draft }: { draft: ResumeBuilderDraft }) {
+  const atoms = useMemo<Atom[]>(() => buildAtoms(draft), [draft]);
 
   return (
     <div className="bg-slate-100 rounded-xl p-4 sm:p-6 dark:bg-neutral-800/80">
       <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[11px] text-slate-400 dark:text-neutral-500">A4 预览</span>
-        <span className="text-[11px] text-slate-400 dark:text-neutral-500">内容超出 1 页时，导出 PDF 将自动分页</span>
+        <span className="text-[11px] text-slate-400 dark:text-neutral-500">A4 预览 · 上下滚动查看分页稿，长章节会跨页排布</span>
       </div>
-      <div
-        className="bg-white shadow-lg rounded-sm mx-auto max-w-[420px] overflow-y-auto scrollbar-thin min-h-[297px]"
-        style={{ aspectRatio: '210 / 297', fontFamily: 'inherit' }}
-      >
-        {draft.template === 'sidebar' ? (
-          <SidebarPreview draft={draft} accent={accent} baseSize={baseSize} titleSize={titleSize} nameSize={nameSize} visibleOrder={visibleOrder} />
-        ) : draft.template === 'header' ? (
-          <HeaderPreview draft={draft} accent={accent} baseSize={baseSize} titleSize={titleSize} nameSize={nameSize} visibleOrder={visibleOrder} />
-        ) : draft.template === 'minimal' ? (
-          <MinimalPreview draft={draft} accent={accent} baseSize={baseSize} titleSize={titleSize} nameSize={nameSize} visibleOrder={visibleOrder} />
-        ) : (
-          <ClassicPreview draft={draft} accent={accent} baseSize={baseSize} titleSize={titleSize} nameSize={nameSize} visibleOrder={visibleOrder} />
-        )}
+      <div className="overflow-y-auto scrollbar-thin py-1 max-h-[80vh] rounded-lg">
+        <PaginatedResume atoms={atoms} />
       </div>
     </div>
   );
 }
 
-/** 经典单栏：姓名 + 联系行 + 单栏分节 */
-function ClassicPreview({ draft, accent, baseSize, titleSize, nameSize, visibleOrder }: PreviewCtx) {
+/** 经典单栏的头部块：姓名、联系行、简介 */
+function ClassicHead({ draft, accent, baseSize, nameSize }: PreviewCtx) {
   const b = draft.basicInfo;
   const contactParts = [b.jobIntent, b.phone, b.email, b.city, b.website].filter(Boolean);
   return (
-    <div className="p-6">
+    <div className="preview-break-avoid">
       {b.name && <h1 className="font-bold tracking-wide mb-1" style={{ fontSize: nameSize, color: accent }}>{b.name}</h1>}
       {contactParts.length > 0 && (
         <div className="text-slate-500 mb-2 leading-relaxed" style={{ fontSize: baseSize }}>
@@ -718,11 +1101,6 @@ function ClassicPreview({ draft, accent, baseSize, titleSize, nameSize, visibleO
         </div>
       )}
       {b.summary && <p className="text-slate-600 mb-3 leading-relaxed" style={{ fontSize: baseSize }}>{b.summary}</p>}
-      {visibleOrder.map((key) => (
-        <SectionBlock key={key} section={key} accent={accent} baseSize={baseSize} titleSize={titleSize}>
-          {(draft[key] as BuilderEntry[]).map((item) => <EntryRow key={item.id} section={key} item={item} baseSize={baseSize} />)}
-        </SectionBlock>
-      ))}
     </div>
   );
 }
@@ -735,7 +1113,7 @@ function SidebarPreview({ draft, accent, baseSize, titleSize, nameSize, visibleO
   const contactParts = [b.phone, b.email, b.city, b.website].filter(Boolean);
 
   return (
-    <div className="flex min-h-full">
+    <div className="flex min-h-full preview-break-avoid bg-white preview-page-slice">
       {/* Left dark sidebar */}
       <div className="w-[34%] shrink-0 p-4 text-white" style={{ backgroundColor: accent }}>
         {b.name && <p className="font-bold leading-tight" style={{ fontSize: nameSize }}>{b.name}</p>}
@@ -755,7 +1133,7 @@ function SidebarPreview({ draft, accent, baseSize, titleSize, nameSize, visibleO
           <div key={key} className="mt-4">
             <p className="mb-1.5" style={{ fontSize: baseSize, opacity: 0.65, letterSpacing: '0.08em' }}>{SECTION_META[key].title}</p>
             <div className="space-y-1.5">
-              {(draft[key] as BuilderEntry[]).map((item) => {
+              {((draft as unknown as Record<string, unknown[]>)[key] as BuilderEntry[]).map((item) => {
                 if (key === 'coreSkills') {
                   const s = item as CoreSkillEntry;
                   return <p key={item.id} style={{ fontSize: baseSize, opacity: 0.92 }}>{s.category ? `${s.category}：${s.skills}` : s.skills}</p>;
@@ -777,22 +1155,20 @@ function SidebarPreview({ draft, accent, baseSize, titleSize, nameSize, visibleO
       {/* Right content */}
       <div className="flex-1 p-4">
         {rightSections.map((key) => (
-          <SectionBlock key={key} section={key} accent={accent} baseSize={baseSize} titleSize={titleSize}>
-            {(draft[key] as BuilderEntry[]).map((item) => <EntryRow key={item.id} section={key} item={item} baseSize={baseSize} />)}
-          </SectionBlock>
+          <SectionBody key={key} section={key} draft={draft} accent={accent} baseSize={baseSize} titleSize={titleSize} />
         ))}
       </div>
     </div>
   );
 }
 
-/** 顶部横幅：深色横幅姓名+意向，下方经典单栏 */
-function HeaderPreview({ draft, accent, baseSize, titleSize, nameSize, visibleOrder }: PreviewCtx) {
-  const b = draft.basicInfo;
+/** 顶部横幅模板的头部块：深色横幅（姓名+意向+联系） */
+function HeaderHead({ draft, accent, baseSize, nameSize }: PreviewCtx) {
+const b = draft.basicInfo;
   const contactParts = [b.phone, b.email, b.city, b.website].filter(Boolean);
   return (
-    <div>
-      <div className="px-6 py-5 text-white" style={{ backgroundColor: accent }}>
+    <div className="preview-break-avoid">
+      <div className="px-6 py-5 text-white mb-4" style={{ backgroundColor: accent }}>
         <h1 className="font-bold tracking-wide" style={{ fontSize: nameSize }}>{b.name || b.jobIntent || '姓名'}</h1>
         {b.jobIntent && <p className="mt-0.5" style={{ fontSize: baseSize, opacity: 0.85 }}>{b.jobIntent}</p>}
         {contactParts.length > 0 && (
@@ -801,24 +1177,17 @@ function HeaderPreview({ draft, accent, baseSize, titleSize, nameSize, visibleOr
           </div>
         )}
       </div>
-      <div className="p-6">
-        {b.summary && <p className="text-slate-600 mb-3 leading-relaxed" style={{ fontSize: baseSize }}>{b.summary}</p>}
-        {visibleOrder.map((key) => (
-          <SectionBlock key={key} section={key} accent={accent} baseSize={baseSize} titleSize={titleSize}>
-            {(draft[key] as BuilderEntry[]).map((item) => <EntryRow key={item.id} section={key} item={item} baseSize={baseSize} />)}
-          </SectionBlock>
-        ))}
-      </div>
+      {b.summary && <p className="text-slate-600 mb-3 leading-relaxed" style={{ fontSize: baseSize }}>{b.summary}</p>}
     </div>
   );
 }
 
-/** 极简留白：大间距、无下划线标题 */
-function MinimalPreview({ draft, accent, baseSize, titleSize, nameSize, visibleOrder }: PreviewCtx) {
+/** 极简留白头部块 */
+function MinimalHead({ draft, accent, baseSize, nameSize }: PreviewCtx) {
   const b = draft.basicInfo;
   const contactParts = [b.jobIntent, b.phone, b.email, b.city, b.website].filter(Boolean);
   return (
-    <div className="p-8">
+    <div className="preview-break-avoid">
       {b.name && <h1 className="font-light tracking-[0.2em] mb-2" style={{ fontSize: nameSize, color: accent }}>{b.name}</h1>}
       {contactParts.length > 0 && (
         <div className="text-slate-500 mb-4 leading-relaxed" style={{ fontSize: baseSize }}>
@@ -826,28 +1195,11 @@ function MinimalPreview({ draft, accent, baseSize, titleSize, nameSize, visibleO
         </div>
       )}
       {b.summary && <p className="text-slate-600 mb-5 leading-loose" style={{ fontSize: baseSize }}>{b.summary}</p>}
-      {visibleOrder.map((key) => (
-        <div key={key} className="mb-5">
-          <h2 className="font-normal tracking-[0.3em] mb-2.5" style={{ fontSize: titleSize, color: accent }}>{SECTION_META[key].title}</h2>
-          <div className="space-y-3">
-            {(draft[key] as BuilderEntry[]).map((item) => {
-              const { left, right, body } = previewLines(key, item);
-              return (
-                <div key={item.id}>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-slate-800" style={{ fontSize: baseSize, fontWeight: 500 }}>{left}</span>
-                    {right && <span className="text-slate-400 shrink-0" style={{ fontSize: baseSize }}>{right}</span>}
-                  </div>
-                  {body && <p className="text-slate-500 whitespace-pre-wrap leading-loose mt-0.5" style={{ fontSize: baseSize }}>{body}</p>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
+
+
 
 interface PreviewCtx {
   draft: ResumeBuilderDraft;
@@ -858,26 +1210,57 @@ interface PreviewCtx {
   visibleOrder: BuilderSectionKey[];
 }
 
-function SectionBlock({ section, accent, baseSize, titleSize, children }: { section: BuilderSectionKey; accent: string; baseSize: string; titleSize: string; children: React.ReactNode }) {
+function SectionBlock({ section, accent, baseSize, titleSize, children, title }: { section: BuilderSectionKey; accent: string; baseSize: string; titleSize: string; children: React.ReactNode; title?: string }) {
   return (
-    <div className="mb-4">
+    <div className="mb-4 preview-break-avoid">
       <h2 className="font-bold mb-1.5 pb-1" style={{ fontSize: titleSize, color: accent, borderBottom: `1.5px solid ${accent}` }}>
-        {SECTION_META[section].title}
+        {title ?? SECTION_META[section].title}
       </h2>
       <div className="space-y-2.5">{children}</div>
     </div>
   );
 }
 
+function SectionBody({ section, draft, accent, baseSize, titleSize }: { section: BuilderSectionKey; draft: ResumeBuilderDraft; accent: string; baseSize: string; titleSize: string }) {
+  if (section === 'custom') {
+    return (
+      <>
+        {draft.customSections.map((mod) => (
+          <SectionBlock key={mod.id} section="custom" accent={accent} baseSize={baseSize} titleSize={titleSize} title={mod.title}>
+            {mod.entries.map((item) => <EntryRow key={item.id} section="custom" item={item as unknown as BuilderEntry} baseSize={baseSize} />)}
+          </SectionBlock>
+        ))}
+      </>
+    );
+  }
+  return (
+    <SectionBlock section={section} accent={accent} baseSize={baseSize} titleSize={titleSize}>
+      {(draft[section] as BuilderEntry[]).map((item) => <EntryRow key={item.id} section={section} item={item} baseSize={baseSize} />)}
+    </SectionBlock>
+  );
+}
+
 function EntryRow({ section, item, baseSize }: { section: BuilderSectionKey; item: BuilderEntry; baseSize: string }) {
   const { left, right, body } = previewLines(section, item);
   return (
-    <div>
+    <div className="mb-3">
       <div className="flex items-baseline justify-between gap-2">
         <span className="font-semibold text-slate-800" style={{ fontSize: baseSize }}>{left}</span>
         {right && <span className="text-slate-500 shrink-0" style={{ fontSize: baseSize }}>{right}</span>}
       </div>
       {body && <p className="text-slate-600 whitespace-pre-wrap leading-relaxed mt-0.5" style={{ fontSize: baseSize }}>{body}</p>}
+    </div>
+  );
+}
+
+/** 分节标题原子：经典样式（下划线）由模板决定，这里给标题自身加下间距。 */
+function SectionTitle({ section, accent, titleSize, title }: { section: BuilderSectionKey; accent: string; titleSize: string; title?: string }) {
+  const text = title ?? SECTION_META[section].title;
+return (
+    <div className="mb-2">
+      <h2 className="font-bold pb-1" style={{ fontSize: titleSize, color: accent, borderBottom: `1.5px solid ${accent}` }}>
+        {text}
+      </h2>
     </div>
   );
 }
@@ -897,7 +1280,7 @@ function previewLines(key: BuilderSectionKey, item: BuilderEntry): { left: strin
       return {
         left: [w.company, w.position].filter(Boolean).join(' | '),
         right: [w.startDate, w.endDate].filter(Boolean).join(' - '),
-        body: (w.responsibilities ?? []).join('\n'),
+        body: w.description,
       };
     }
     case 'projects': {
@@ -915,6 +1298,10 @@ function previewLines(key: BuilderSectionKey, item: BuilderEntry): { left: strin
     case 'personalStrengths': {
       const p = item as PersonalStrengthEntry;
       return { left: p.content, right: '', body: '' };
+    }
+    case 'custom': {
+      const c = item as { title?: string; detail?: string; description?: string };
+      return { left: c.title ?? '', right: c.detail ?? '', body: c.description ?? '' };
     }
   }
 }

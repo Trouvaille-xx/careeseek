@@ -1,11 +1,11 @@
-﻿import { useEffect, useState, useCallback } from 'react';
+﻿import { useState, useCallback } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { AnalysisError } from '@/components/ui/AnalysisError';
 import { PageLoading } from '@/components/ui/Spinner';
-import { exportJSON, exportBuilderPDF } from '@/services/exportService';
+import { ResumePreview } from '@/features/resume-builder/ResumeBuilderPage';
+import { exportJSON, exportBuilderPDF, exportBuilderDOCX } from '@/services/exportService';
 import { finalResumeToDraft } from '@/services/resumeDraftService';
 import { track } from '@/services/tracker';
 
@@ -16,11 +16,16 @@ export function FinalResumePage() {
   const [copied, setCopied] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // 从简历原文提取个人信息行（姓名/联系方式）
   const firstLine = userInput.resumeContent.trim().split('\n')[0] || '';
   const hasPersonalInfo = firstLine.includes('@') || firstLine.includes('手机') || firstLine.includes('电话');
   const personalInfoLine = hasPersonalInfo ? firstLine : '';
+
+  const draft = finalResume
+    ? finalResumeToDraft(finalResume, resumeLibrary, personalInfoLine)
+    : null;
 
   // 复制全部文本
   const handleCopy = useCallback(async () => {
@@ -33,7 +38,6 @@ export function FinalResumePage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback
       const textarea = document.createElement('textarea');
       textarea.value = finalResume.raw || '';
       document.body.appendChild(textarea);
@@ -45,26 +49,41 @@ export function FinalResumePage() {
     }
   }, [finalResume]);
 
-  // 导出占位
-  const handleExport = useCallback(() => {
-    setExportOpen(true);
-  }, []);
-
   const handleExportJSON = useCallback(() => {
     if (!finalResume) return;
     exportJSON(finalResume);
     track('export_json', { source: 'final' });
     setExportOpen(false);
+    setExportError(null);
   }, [finalResume]);
 
   const handleExportPDF = useCallback(async () => {
     if (!finalResume) return;
     setExportingPdf(true);
+    setExportError(null);
     try {
-      const draft = finalResumeToDraft(finalResume, resumeLibrary, personalInfoLine);
-      await exportBuilderPDF(draft);
+      const d = finalResumeToDraft(finalResume, resumeLibrary, personalInfoLine);
+      await exportBuilderPDF(d);
       track('export_pdf', { source: 'final', template: 'classic' });
       setExportOpen(false);
+    } catch (e) {
+      setExportError((e as Error).message || 'PDF 导出失败，请重试');
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [finalResume, resumeLibrary, personalInfoLine]);
+
+  const handleExportWORD = useCallback(async () => {
+    if (!finalResume) return;
+    setExportingPdf(true);
+    setExportError(null);
+    try {
+      const d = finalResumeToDraft(finalResume, resumeLibrary, personalInfoLine);
+      await exportBuilderDOCX(d);
+      track('export_docx', { source: 'final', template: 'classic' });
+      setExportOpen(false);
+    } catch (e) {
+      setExportError((e as Error).message || 'Word 导出失败，请重试');
     } finally {
       setExportingPdf(false);
     }
@@ -73,8 +92,8 @@ export function FinalResumePage() {
   const handleOpenBuilder = useCallback(() => {
     if (!finalResume) return;
     const store = useAppStore.getState();
-    const draft = finalResumeToDraft(finalResume, store.resumeLibrary, personalInfoLine);
-    store.importBuilderDraft(draft);
+    const d = finalResumeToDraft(finalResume, store.resumeLibrary, personalInfoLine);
+    store.importBuilderDraft(d);
     store.setResumeLibraryTab('build');
     store.setCurrentStep(-1);
   }, [finalResume, personalInfoLine]);
@@ -101,26 +120,14 @@ export function FinalResumePage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Personal info bar */}
-      {personalInfoLine && (
-        <div className="bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-neutral-700 shadow-sm px-6 py-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-neutral-700 flex items-center justify-center">
-            <svg className="w-5 h-5 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-            </svg>
-          </div>
-          <span className="text-sm text-slate-700 dark:text-neutral-200">{personalInfoLine}</span>
-        </div>
-      )}
-
       {/* 操作栏 */}
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 flex items-center gap-2">
           <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
           最终简历
+          <span className="text-xs text-slate-400 dark:text-neutral-500 font-normal">A4 预览 · 导出 PDF/JSON</span>
         </h3>
         <div className="flex items-center gap-3">
-          {/* 复制成功提示 */}
           {copied && (
             <span className="text-xs text-emerald-600 dark:text-emerald-300 animate-fade-in flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -141,7 +148,7 @@ export function FinalResumePage() {
             </svg>
             模板排版
           </Button>
-          <Button size="sm" onClick={handleExport}>
+          <Button size="sm" onClick={() => { setExportOpen(true); setExportError(null); }}>
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -150,18 +157,8 @@ export function FinalResumePage() {
         </div>
       </div>
 
-      {/* 简历章节 */}
-      {finalResume.sections.map((section, idx) => (
-        <Card key={idx} padding="lg" className="animate-fade-in" style={{ animationDelay: `${idx * 80}ms` }}>
-          <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
-            <span className="w-1.5 h-5 bg-primary-500 rounded-full" />
-            {section.title}
-          </h3>
-          <div className="text-sm text-slate-700 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap">
-            {section.content}
-          </div>
-        </Card>
-      ))}
+      {/* A4 可视化预览 */}
+      {draft && <ResumePreview draft={draft} />}
 
       {/* 导出 Dialog */}
       <Dialog open={exportOpen} onClose={() => setExportOpen(false)} title="导出简历">
@@ -169,6 +166,11 @@ export function FinalResumePage() {
           <p className="text-sm text-slate-600 dark:text-neutral-300">
             选择导出格式，下载后可投递或备份。
           </p>
+          {exportError && (
+            <div className="text-xs px-3 py-2 rounded-lg bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              {exportError}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
@@ -188,6 +190,17 @@ export function FinalResumePage() {
                 {exportingPdf ? '生成中...' : 'PDF 文件'}
               </span>
               <span className="text-xs text-slate-500 dark:text-neutral-400">classic 模板排版 A4 简历</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportWORD}
+              disabled={exportingPdf}
+              className="flex flex-col items-center gap-2 rounded-xl border-2 border-slate-200 dark:border-neutral-700 hover:border-primary-500 bg-white dark:bg-neutral-800 p-4 text-left transition-all disabled:opacity-50"
+            >
+              <span className="text-sm font-medium text-slate-800 dark:text-neutral-200">
+                {exportingPdf ? '生成中...' : 'Word 文件'}
+              </span>
+              <span className="text-xs text-slate-500 dark:text-neutral-400">.docx 格式，可继续编辑</span>
             </button>
           </div>
           <button

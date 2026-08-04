@@ -3,6 +3,7 @@ import { useAppStore } from '@/stores/useAppStore';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { MarkdownText } from '@/components/ui/MarkdownText';
 import { analysisService } from '@/services/analysisService';
 import { track } from '@/services/tracker';
 import type { InterviewMessage, InterviewReport } from '@/types';
@@ -14,6 +15,9 @@ export function MockInterviewPage() {
     completeInterview, resetCurrentInterview,
     jdAnalysis, diagnosis,
   } = useAppStore();
+
+  const { interviewPrep } = useAppStore();
+  const personaText = interviewPrep?.interviewerPersona;
 
   const currentSession = interviewSessions.find((s) => s.id === currentInterviewId);
   const [mode, setMode] = useState<'real' | 'learning' | null>(null);
@@ -33,7 +37,7 @@ export function MockInterviewPage() {
 
     try {
       const { persona, firstQuestion } = await analysisService.startInterview(
-        userInput, jdAnalysis!, diagnosis!, selectedMode
+        userInput, jdAnalysis!, diagnosis!, selectedMode, personaText
       );
       addInterviewMessage({ id: genId(), role: 'assistant', content: persona, round: 0 });
       addInterviewMessage({ id: genId(), role: 'assistant', content: firstQuestion, round: 1 });
@@ -56,13 +60,14 @@ export function MockInterviewPage() {
       const result = await analysisService.continueInterview(
         userInput, jdAnalysis!, diagnosis!,
         [...currentSession.messages, { id: genId(), role: 'user', content: text, round: userRound }],
-        mode || 'real'
+        mode || 'real', personaText
       );
 
       const nextRound = currentSession.messages.filter((m) => m.role === 'assistant' && m.round > 0).length + 1;
       addInterviewMessage({
         id: genId(), role: 'assistant', content: result.response,
         tip: result.tip, score: result.score, round: nextRound,
+        usage: result.usage ?? undefined,
       });
     } catch (e: any) {
       addInterviewMessage({ id: genId(), role: 'assistant', content: `抱歉，出现了错误：${e?.message || '未知错误'}。请重试。`, round: userRound + 0.5 });
@@ -153,7 +158,7 @@ export function MockInterviewPage() {
     return (
       <div className="animate-fade-in flex flex-col h-[calc(100vh-12rem)]">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4 shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4 shrink-0">
           <div>
             <span className="text-xs text-slate-400 dark:text-neutral-500 font-medium">{mode === 'real' ? '真实面试' : '学习模式'}</span>
             <span className="text-xs text-slate-300 dark:text-neutral-600 mx-2">|</span>
@@ -191,8 +196,21 @@ export function MockInterviewPage() {
                   <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                     isUser ? 'bg-primary-600 text-white' : isSystem ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 border border-emerald-200' : 'bg-slate-100 dark:bg-neutral-700/60 text-slate-800 dark:text-neutral-200'
                   }`}>
-                    {msg.content.split('\n').map((line, i) => <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>)}
+                    {isUser
+                      ? msg.content.split('\n').map((line, i) => <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>)
+                      : <MarkdownText content={msg.content} />}
                   </div>
+                  {msg.role === 'assistant' && msg.usage && msg.usage.total_tokens > 0 && !isSystem && (
+                    <div className="mt-1.5 flex items-center gap-2 text-[10px] text-slate-400 dark:text-neutral-500">
+                      <span>本次消耗</span>
+                      <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md font-medium ${
+                        msg.usage.isByok ? 'bg-slate-100 text-slate-500 dark:bg-neutral-700/60 dark:text-neutral-300' : 'bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300'
+                      }`}>
+                        {msg.usage.costPoints} 积分
+                      </span>
+                      <span className="text-[9px]">（{msg.usage.total_tokens} tokens{msg.usage.isByok ? ' · BYOK 不计费' : ''}）</span>
+                    </div>
+                  )}
                   {mode === 'learning' && msg.role === 'assistant' && msg.tip && !isSystem && (
                     <div className="mt-1.5 px-3 py-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 rounded-xl">
                       <p className="text-[11px] text-amber-700 dark:text-amber-300 leading-relaxed">提示：{msg.tip}</p>

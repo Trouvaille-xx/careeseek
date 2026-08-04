@@ -1,0 +1,62 @@
+graph LR
+  subgraph Client["浏览器 SPA — React 18 + TS + Vite"]
+    direction TB
+    UI["Pages<br/>features/*"]
+    Store["Zustand Store<br/>useAppStore<br/>persist → localStorage"]
+    Svc1["apiService<br/>resolveEndpoint"]
+    Svc2["analysisService<br/>8 步业务编排"]
+    Svc3["tracker"]
+    Svc4["exportService<br/>PDF / JSON"]
+    Svc5["resumeDraftService"]
+    UI --> Store
+    UI --> Svc2
+    Svc2 --> Svc1
+    Svc4 --> UI
+    Svc5 --> Svc2
+    Store -. "resume / JD" .-> UI
+    Svc3 --> Store
+  end
+
+  subgraph Proxy["服务端 Fastify :3001"]
+    direction TB
+    Auth["/auth/login<br/>/auth/register<br/>/auth/logout"]
+    Me["/me"]
+    Chat["/chat/completions<br/>proxy.ts"]
+    Events["/events"]
+    Pay["/checkout<br/>/payments/:id"]
+    DB[("SQLite<br/>users · sessions<br/>llm_usage · events<br/>payments")]
+    Auth --> DB
+    Chat --> DB
+    Events --> DB
+    Pay --> DB
+    Me --> DB
+  end
+
+  subgraph LLM["LLM 上游"]
+    U1["DeepSeek"]
+    U2["MiniMax<br/>MiniMax-M3"]
+    U3["OpenAI 兼容<br/>BYOK 直连"]
+  end
+
+  subgraph Misc["外部"]
+    Font["GitHub<br/>Noto CJK 字体"]
+    WX["微信支付<br/>未接入"]
+  end
+
+  Svc1 ==>|登录态<br/>Bearer token| Chat
+  Svc1 ==>|BYOK 透传<br/>X-User-Api-Key| Chat
+  Svc1 -. "未登录 BYOK" .-> U3
+  Chat ==>|cost > 0 扣积分| U1
+  Chat ==>|托管默认| U2
+  Svc3 ==>|埋点 batch| Events
+  Svc4 -. "动态下载" .-> Font
+  Pay -. "可选" .-> WX
+
+  classDef client fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
+  classDef server fill:#fef3c7,stroke:#b45309,color:#78350f
+  classDef llm fill:#f3e8ff,stroke:#7e22ce,color:#581c87
+  classDef misc fill:#f1f5f9,stroke:#475569,color:#1e293b
+  class UI,Store,Svc1,Svc2,Svc3,Svc4,Svc5 client
+  class Auth,Me,Chat,Events,Pay,DB server
+  class U1,U2,U3 llm
+  class Font,WX misc

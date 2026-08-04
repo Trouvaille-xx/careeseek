@@ -3,20 +3,20 @@ import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
 import { MonthPicker } from '@/components/ui/MonthPicker';
-import { ResponsibilitiesEditor } from '@/components/ui/ResponsibilitiesEditor';
 import { BuilderListView, ResumeBuilderView } from '@/features/resume-builder/ResumeBuilderPage';
-import type { EducationEntry, WorkExperienceEntry, ProjectEntry, CoreSkillEntry, BasicInfoEntry, PersonalStrengthEntry } from '@/types';
+import type { EducationEntry, WorkExperienceEntry, ProjectEntry, CoreSkillEntry, BasicInfoEntry, PersonalStrengthEntry, CustomModule, CustomModuleEntry } from '@/types';
 
 function genId() { return Math.random().toString(36).slice(2, 10); }
 
 type ModuleKey = 'basicInfo' | 'education' | 'personalStrengths' | 'workExperience' | 'projects' | 'coreSkills';
 
 const emptyEdu = (): EducationEntry => ({ id: genId(), school: '', major: '', degree: '', startDate: '', endDate: '', description: '', status: 'approved' });
-const emptyWork = (): WorkExperienceEntry => ({ id: genId(), company: '', position: '', startDate: '', endDate: '', responsibilities: [], status: 'approved' });
+const emptyWork = (): WorkExperienceEntry => ({ id: genId(), company: '', position: '', startDate: '', endDate: '', description: '', status: 'approved' });
 const emptyProj = (): ProjectEntry => ({ id: genId(), name: '', role: '', startDate: '', endDate: '', description: '', status: 'approved' });
 const emptySkill = (): CoreSkillEntry => ({ id: genId(), category: '', skills: '', status: 'approved' });
 const emptyStrength = (): PersonalStrengthEntry => ({ id: genId(), content: '', status: 'approved' });
 const emptyBasicInfo = (): BasicInfoEntry => ({ name: '', phone: '', email: '', city: '', jobIntent: '', website: '', summary: '' });
+const emptyCustomEntry = (): CustomModuleEntry => ({ id: genId(), title: '', detail: '', description: '', status: 'approved' });
 
 const MODULES: { key: ModuleKey; title: string; desc: string; icon: React.ReactNode; isList: boolean }[] = [
   { key: 'basicInfo', title: '基本信息', desc: '姓名、联系方式、求职意向', icon: <PersonIcon />, isList: false },
@@ -83,16 +83,35 @@ function ManageView() {
     addProject, updateProject, deleteProject,
     addCoreSkill, updateCoreSkill, deleteCoreSkill,
     addPersonalStrength, updatePersonalStrength, deletePersonalStrength,
+    addCustomModule, renameCustomModule, deleteCustomModule,
+    addCustomModuleEntry, updateCustomModuleEntry, deleteCustomModuleEntry,
   } = useAppStore();
 
   const [expandedModules, setExpandedModules] = useState<Record<ModuleKey, boolean>>({
     basicInfo: true, education: false, personalStrengths: false, workExperience: false, projects: false, coreSkills: false,
   });
   const [activeModule, setActiveModule] = useState<ModuleKey>('basicInfo');
+  const [activeCustomId, setActiveCustomId] = useState<string | null>(null);
+  const [titleEditTarget, setTitleEditTarget] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const selectModule = (key: ModuleKey) => {
     setActiveModule(key);
+    setActiveCustomId(null);
     setExpandedModules((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const selectCustom = (id: string) => {
+    setActiveCustomId(id);
+    setActiveModule('basicInfo');
+  };
+
+  const handleAddCustom = () => {
+    const id = genId();
+    addCustomModule({ id, title: `自定义模块 ${resumeLibrary.customModules.length + 1}`, entries: [] });
+    selectCustom(id);
+    setTitleEditTarget(id);
   };
 
   const counts: Record<ModuleKey, number> = {
@@ -128,40 +147,117 @@ function ManageView() {
     },
   };
 
+  const activeCustomModule = resumeLibrary.customModules.find((m) => m.id === activeCustomId) ?? null;
+
   return (
-    <div className="animate-fade-in flex gap-4 h-full min-h-[calc(100vh-8rem)]">
-      {/* Left: simple menu list */}
-      <div className="w-56 shrink-0 space-y-1">
-        {MODULES.map((m) => {
-          const isActive = activeModule === m.key;
-          return (
-            <button
-              key={m.key}
-              onClick={() => selectModule(m.key)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${
-                isActive
-                  ? 'border-primary-200 bg-primary-50/60 dark:bg-neutral-700/60'
-                  : 'border-slate-200 bg-white dark:bg-neutral-800 dark:border-neutral-700 hover:border-slate-300 dark:hover:border-neutral-600'
-              }`}
-            >
-              <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                isActive ? 'bg-primary-100 text-primary-600 dark:bg-neutral-700 dark:text-primary-300' : 'bg-slate-50 text-slate-400 dark:bg-neutral-700/50 dark:text-neutral-500'
-              }`}>
-                {m.icon}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${isActive ? 'text-primary-700 dark:text-primary-300' : 'text-slate-800 dark:text-neutral-200'}`}>{m.title}</p>
-                <p className="text-[11px] text-slate-400 dark:text-neutral-500 truncate">{m.desc}</p>
+    <div className="animate-fade-in flex flex-col lg:flex-row gap-4 h-full min-h-[calc(100vh-8rem)]">
+      {/* Left: menu list（移动端横向滚动，桌面竖排） */}
+      <div className="w-full lg:w-60 lg:shrink-0 overflow-x-auto lg:overflow-y-auto lg:overflow-x-visible scrollbar-thin space-y-2 lg:space-y-0 pb-1 lg:pb-4 h-auto lg:h-full">
+        <div className="flex lg:flex-col gap-1 lg:space-y-1 lg:gap-0">
+          {MODULES.map((m) => {
+            const isActive = activeModule === m.key && !activeCustomModule;
+            return (
+              <button
+                key={m.key}
+                onClick={() => selectModule(m.key)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left whitespace-nowrap lg:whitespace-normal transition-all ${
+                  isActive
+                    ? 'border-primary-200 bg-primary-50/60 dark:bg-neutral-700/60'
+                    : 'border-slate-200 bg-white dark:bg-neutral-800 dark:border-neutral-700 hover:border-slate-300 dark:hover:border-neutral-600'
+                }`}
+              >
+                <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                  isActive ? 'bg-primary-100 text-primary-600 dark:bg-neutral-700 dark:text-primary-300' : 'bg-slate-50 text-slate-400 dark:bg-neutral-700/50 dark:text-neutral-500'
+                }`}>
+                  {m.icon}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${isActive ? 'text-primary-700 dark:text-primary-300' : 'text-slate-800 dark:text-neutral-200'}`}>{m.title}</p>
+                  <p className="text-[11px] text-slate-400 dark:text-neutral-500 truncate hidden lg:block">{m.desc}</p>
+                </div>
+                <span className="text-[10px] text-slate-400 dark:text-neutral-500 bg-slate-100 dark:bg-neutral-700/60 px-1.5 py-0.5 rounded shrink-0">{counts[m.key]}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 自定义模块 */}
+        <div className="border-t border-slate-200 dark:border-neutral-700/60 pt-2 lg:pt-2">
+          <div className="flex items-center justify-between px-4 pb-1 shrink-0">
+            <span className="text-[11px] font-medium text-slate-400 dark:text-neutral-500 tracking-wide whitespace-nowrap">自定义模块</span>
+            <span className="text-[10px] text-slate-400 dark:text-neutral-500 bg-slate-100 dark:bg-neutral-700/60 px-1.5 py-0.5 rounded">{resumeLibrary.customModules.length}</span>
+          </div>
+          <div className="flex lg:flex-col gap-1 lg:gap-0 lg:space-y-1 lg:max-h-44 lg:overflow-y-auto scrollbar-thin pb-1 lg:pb-0">
+            {resumeLibrary.customModules.length === 0 && (
+              <p className="text-[11px] text-slate-300 dark:text-neutral-600 px-2 py-1 whitespace-nowrap">暂无自定义模块</p>
+            )}
+            {resumeLibrary.customModules.map((mod) => (
+              <div key={mod.id} className={`group flex items-center gap-1.5 pr-0 w-full rounded-xl px-2 py-2 cursor-pointer whitespace-nowrap transition-all ${
+                activeCustomModule?.id === mod.id
+                  ? 'border border-primary-200 bg-primary-50/60 dark:bg-neutral-700/60'
+                  : 'border border-transparent hover:bg-slate-50 dark:hover:bg-neutral-800'
+              }`} onClick={() => selectCustom(mod.id)}>
+                <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 text-sm ${
+                  activeCustomModule?.id === mod.id ? 'bg-primary-100 text-primary-600 dark:bg-neutral-700 dark:text-primary-300' : 'bg-slate-50 text-slate-400 dark:bg-neutral-700/50 dark:text-neutral-500'
+                }`}>⋮</span>
+                <div className="flex-1 min-w-0">
+                  {renamingId === mod.id ? (
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { const t = renameValue.trim(); if (t) renameCustomModule(mod.id, t); setRenamingId(null); }
+                        if (e.key === 'Escape') setRenamingId(null);
+                      }}
+                      onBlur={() => { const t = renameValue.trim(); if (t) renameCustomModule(mod.id, t); setRenamingId(null); }}
+                      className="w-full text-sm px-1.5 py-0.5 rounded border border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                    />
+                  ) : (
+                    <>
+                      <p className={`text-sm truncate ${activeCustomModule?.id === mod.id ? 'text-primary-700 dark:text-primary-300' : 'text-slate-700 dark:text-neutral-300'}`}>{mod.title}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-neutral-500 hidden lg:block">{mod.entries.length} 条</p>
+                    </>
+                  )}
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setRenamingId(mod.id); setRenameValue(mod.title); }}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300"
+                ><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); if (confirm(`删除模块"${mod.title}"？`)) deleteCustomModule(mod.id); }}
+                  className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 dark:text-neutral-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
               </div>
-              <span className="text-[10px] text-slate-400 dark:text-neutral-500 bg-slate-100 dark:bg-neutral-700/60 px-1.5 py-0.5 rounded shrink-0">{counts[m.key]}</span>
-            </button>
-          );
-        })}
+            ))}
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleAddCustom} className="w-full shrink-0">
+            <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            新增
+          </Button>
+        </div>
       </div>
 
       {/* Right: only the active module */}
-      <div className="flex-1 min-w-0 bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-neutral-700 shadow-sm p-6 overflow-y-auto scrollbar-thin">
-        <ActiveModuleEditor moduleKey={activeModule} {...editorProps} />
+      <div className="flex-1 min-w-0 bg-white dark:bg-neutral-800 rounded-xl border border-slate-200 dark:border-neutral-700 shadow-sm p-4 sm:p-6 overflow-y-auto scrollbar-thin">
+        {activeCustomModule ? (
+          <CustomModuleEditor
+            key={activeCustomModule.id}
+            module={activeCustomModule}
+            autoEditTitle={titleEditTarget === activeCustomModule.id}
+            onRename={(title) => { renameCustomModule(activeCustomModule.id, title); setTitleEditTarget(null); }}
+            onDelete={() => deleteCustomModule(activeCustomModule.id)}
+            onAdd={() => addCustomModuleEntry(activeCustomModule.id, emptyCustomEntry())}
+            onUpdate={(id, e) => updateCustomModuleEntry(activeCustomModule.id, id, e)}
+            onDeleteEntry={(id) => deleteCustomModuleEntry(activeCustomModule.id, id)}
+          />
+        ) : (
+          <ActiveModuleEditor moduleKey={activeModule} {...editorProps} />
+        )}
       </div>
     </div>
   );
@@ -397,11 +493,11 @@ function BasicInfoForm({ initial, onSave }: { initial: BasicInfoEntry; onSave: (
 
   return (
     <div className="max-w-xl space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input label="姓名" placeholder="张三" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <Input label="手机" placeholder="138****5678" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input label="邮箱" placeholder="zhangsan@email.com" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <Input label="所在城市" placeholder="北京 / 上海 / 杭州" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
       </div>
@@ -506,11 +602,11 @@ function EduForm({ entry, onSave, onCancel }: { entry: EducationEntry; onSave: (
   const [form, setForm] = useState(entry);
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="学校" value={form.school} onChange={(e) => setForm({ ...form, school: e.target.value })} />
         <Input label="专业" value={form.major} onChange={(e) => setForm({ ...form, major: e.target.value })} />
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Input label="学历" placeholder="本科/硕士/博士" value={form.degree} onChange={(e) => setForm({ ...form, degree: e.target.value })} />
         <DateInput label="开始时间" value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} />
         <DateInput label="结束时间" value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} />
@@ -541,18 +637,15 @@ function WorkForm({ entry, onSave, onCancel }: { entry: WorkExperienceEntry; onS
   const [form, setForm] = useState(entry);
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="公司名称" placeholder="公司全称" value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
         <Input label="岗位" placeholder="担任职位" value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <DateInput label="开始时间" value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} />
         <EndDateInput label="结束时间" value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} />
       </div>
-      <ResponsibilitiesEditor
-        items={form.responsibilities ?? []}
-        onChange={(items) => setForm({ ...form, responsibilities: items })}
-      />
+      <Textarea label="工作职责与成果" rows={5} placeholder="直接填写描述，无需拆分列表；支持多行，用「- 」开头仅作视觉分隔" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
       <div className="flex gap-2 justify-end">
         <Button variant="ghost" size="sm" onClick={onCancel}>取消</Button>
         <Button size="sm" onClick={() => onSave(form)}>保存</Button>
@@ -596,7 +689,6 @@ function EndDateInput({ label, value, onChange }: { label: string; value: string
 }
 
 function WorkDisplay({ entry, onEdit }: { entry: WorkExperienceEntry; onEdit: () => void }) {
-  const items = (entry.responsibilities ?? []).length > 0 ? entry.responsibilities : [];
   return (
     <div className="cursor-pointer" onClick={onEdit}>
       <div className="flex items-baseline gap-2">
@@ -606,15 +698,8 @@ function WorkDisplay({ entry, onEdit }: { entry: WorkExperienceEntry; onEdit: ()
         {entry.position && <span className="text-xs text-slate-500 dark:text-neutral-400">{entry.position}</span>}
       </div>
       <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">{entry.startDate} - {entry.endDate || '至今'}</p>
-      {items.length > 0 && (
-        <ul className="mt-1.5 space-y-1">
-          {items.map((item, i) => (
-            <li key={i} className="text-xs text-slate-600 dark:text-neutral-300 flex gap-1.5">
-              <span className="text-slate-400 dark:text-neutral-500 select-none shrink-0">•</span>
-              <span className="line-clamp-2">{item}</span>
-            </li>
-          ))}
-        </ul>
+      {entry.description && (
+        <p className="mt-1.5 text-xs text-slate-600 dark:text-neutral-300 whitespace-pre-wrap leading-relaxed line-clamp-3">{entry.description}</p>
       )}
     </div>
   );
@@ -625,11 +710,11 @@ function ProjectForm({ entry, onSave, onCancel }: { entry: ProjectEntry; onSave:
   const [form, setForm] = useState(entry);
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="项目名称" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <Input label="担任角色" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <DateInput label="开始时间" value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} />
         <DateInput label="结束时间" value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} />
       </div>
@@ -680,6 +765,98 @@ function SkillDisplay({ entry, onEdit }: { entry: CoreSkillEntry; onEdit: () => 
       </p>
       <p className="text-xs text-slate-600 dark:text-neutral-300 mt-0.5">{entry.skills || <span className="text-slate-300 dark:text-neutral-600">未填写</span>}</p>
     </div>
+  );
+}
+
+// ====== Custom Module ======
+function CustomEntryForm({ entry, onSave, onCancel }: { entry: CustomModuleEntry; onSave: (e: CustomModuleEntry) => void; onCancel: () => void }) {
+  const [form, setForm] = useState(entry);
+  return (
+    <div className="space-y-3">
+      <Input label="标题" placeholder="例如：PMP 项目管理专业人士认证" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+      <Textarea label="描述" rows={3} placeholder="例如：2023-06 通过 PMP 认证，负责跨国项目交付" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+      <div className="flex gap-2 justify-end">
+        <Button variant="ghost" size="sm" onClick={onCancel}>取消</Button>
+        <Button size="sm" onClick={() => onSave(form)}>保存</Button>
+      </div>
+    </div>
+  );
+}
+
+function CustomEntryDisplay({ entry, onEdit }: { entry: CustomModuleEntry; onEdit: () => void }) {
+  return (
+    <div className="cursor-pointer" onClick={onEdit}>
+      <p className="text-sm font-medium text-slate-900 dark:text-neutral-100">{entry.title || <span className="text-slate-300 dark:text-neutral-600">标题</span>}
+        {entry.status === 'draft' && <span className="ml-2 text-[10px] text-amber-600 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">草稿</span>}
+      </p>
+      {entry.detail && <p className="text-xs text-slate-500 dark:text-neutral-400 mt-0.5">{entry.detail}</p>}
+      {entry.description && <p className="text-xs text-slate-600 dark:text-neutral-300 mt-1.5 whitespace-pre-wrap leading-relaxed line-clamp-3">{entry.description}</p>}
+    </div>
+  );
+}
+
+function CustomModuleEditor({
+  module, autoEditTitle, onRename, onDelete, onAdd, onUpdate, onDeleteEntry,
+}: {
+  module: CustomModule;
+  autoEditTitle?: boolean;
+  onRename: (title: string) => void;
+  onDelete: () => void;
+  onAdd: () => void;
+  onUpdate: (id: string, e: CustomModuleEntry) => void;
+  onDeleteEntry: (id: string) => void;
+}) {
+  const [editingTitle, setEditingTitle] = useState(!!autoEditTitle);
+  const [newTitle, setNewTitle] = useState(module.title);
+
+  const submitRename = () => {
+    const t = newTitle.trim();
+    if (t && t !== module.title) onRename(t);
+    setEditingTitle(false);
+  };
+
+  return (
+    <ModuleContainer title="" desc="">
+      <div className="flex items-center gap-3 mb-6">
+        {editingTitle ? (
+          <div className="flex items-center gap-2 flex-1">
+            <Input className="flex-1" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} autoFocus />
+            <Button size="sm" onClick={submitRename}>保存</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setEditingTitle(false); setNewTitle(module.title); }}>取消</Button>
+          </div>
+        ) : (
+          <>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-neutral-100">{module.title}</h3>
+            <button onClick={() => { setEditingTitle(true); setNewTitle(module.title); }} className="p-1 rounded text-slate-400 dark:text-neutral-500 hover:text-slate-600 dark:hover:text-neutral-300">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+            </button>
+            <button onClick={() => { if (confirm(`删除模块"${module.title}"？`)) onDelete(); }} className="p-1 rounded text-slate-400 dark:text-neutral-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </button>
+          </>
+        )}
+        <Button variant="ghost" size="sm" onClick={onAdd} className="ml-auto">
+          <svg className="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          新增条目
+        </Button>
+      </div>
+      {module.entries.length === 0 ? (
+        <EmptyHint />
+) : (
+          <div className="space-y-2">
+            {module.entries.map((entry) => (
+              <EditableCard key={entry.id} onDelete={() => onDeleteEntry(entry.id)}>
+                {(editing, setEditing) => (
+                  editing ? <CustomEntryForm entry={entry} onSave={(e) => { onUpdate(entry.id, e); setEditing(false); }} onCancel={() => setEditing(false)} />
+                    : <CustomEntryDisplay entry={entry} onEdit={() => setEditing(true)} />
+                )}
+              </EditableCard>
+            ))}
+          </div>
+        )}
+    </ModuleContainer>
   );
 }
 

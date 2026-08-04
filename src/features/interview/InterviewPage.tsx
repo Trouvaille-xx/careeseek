@@ -1,9 +1,11 @@
 ﻿import { useEffect, useState, useCallback } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { AnalysisError } from '@/components/ui/AnalysisError';
 import { PageLoading } from '@/components/ui/Spinner';
+import { MarkdownText } from '@/components/ui/MarkdownText';
 
 export function InterviewPage() {
   const { interviewPrep, analysisStatus } = useAppStore();
@@ -45,6 +47,41 @@ export function InterviewPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* 面试官 + 进入模拟面试 */}
+      <Card padding="lg" className="relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-primary-50 dark:bg-neutral-700/40 rounded-full blur-3xl -mr-16 -mt-16" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-5 relative">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-primary-500/20">
+              <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100">你的模拟面试官</h3>
+                <span className="text-[10px] text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 px-2 py-0.5 rounded-full shrink-0">已就位</span>
+              </div>
+              <div className="text-sm text-slate-600 dark:text-neutral-300 leading-relaxed">
+                {interviewPrep.interviewerPersona
+                  ? <MarkdownText content={interviewPrep.interviewerPersona} />
+                  : 'AI 已根据你的目标岗位生成面试官，点击开始进行模拟面试。'}
+              </div>
+            </div>
+          </div>
+          <Button
+            size="lg"
+            className="shrink-0"
+            onClick={() => useAppStore.getState().setCurrentStep(-2)}
+          >
+            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+            </svg>
+            进入模拟面试
+          </Button>
+        </div>
+      </Card>
+
       {/* 可能追问 */}
       <Card padding="lg">
         <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-4 flex items-center gap-2">
@@ -167,7 +204,9 @@ export function InterviewPage() {
           自我介绍
         </h3>
         <div className="p-4 rounded-lg bg-purple-50 border border-purple-100">
-          <p className="text-sm text-slate-700 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap">{interviewPrep.selfIntroduction}</p>
+          <div className="text-sm text-slate-700 dark:text-neutral-200 leading-relaxed">
+            <MarkdownText content={interviewPrep.selfIntroduction} />
+          </div>
         </div>
       </Card>
     </div>

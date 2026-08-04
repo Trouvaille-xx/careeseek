@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
-import type { EducationEntry, WorkExperienceEntry, ProjectEntry, CoreSkillEntry, ResumeBuilderDraft } from '@/types';
+import type { EducationEntry, WorkExperienceEntry, ProjectEntry, CoreSkillEntry, ResumeBuilderDraft, BuilderSectionKey } from '@/types';
 
 function genId() { return Math.random().toString(36).slice(2, 10); }
 
@@ -98,7 +98,7 @@ export function SyncResumeDialog({ open, onClose }: { open: boolean; onClose: ()
       const entry: WorkExperienceEntry = {
         id: genId(), company: parts[0]?.trim() || '', position: parts[1]?.trim() || '',
         startDate: '', endDate: '',
-        responsibilities: lines.map((l) => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean),
+        description: lines.map((l) => l.trim()).filter(Boolean).join('\n'),
         status: 'draft',
       };
       addWorkExperience(entry);
@@ -135,8 +135,8 @@ export function SyncResumeDialog({ open, onClose }: { open: boolean; onClose: ()
       name: 'AI 优化简历',
       updatedAt: Date.now(),
       basicInfo: store.resumeLibrary.basicInfo ? { ...store.resumeLibrary.basicInfo } : blank,
-      sectionOrder: ['education', 'workExperience', 'projects', 'coreSkills', 'personalStrengths'],
-      visibleSections: { education: true, workExperience: true, projects: true, coreSkills: true, personalStrengths: true },
+      sectionOrder: ['education', 'workExperience', 'projects', 'coreSkills', 'personalStrengths', ...(store.resumeLibrary.customModules.length > 0 ? ['custom' as BuilderSectionKey] : [])],
+      visibleSections: { education: true, workExperience: true, projects: true, coreSkills: true, personalStrengths: true, custom: store.resumeLibrary.customModules.length > 0 },
       template: 'classic',
       accentColor: 'slate',
       fontSize: 'medium',
@@ -150,7 +150,7 @@ export function SyncResumeDialog({ open, onClose }: { open: boolean; onClose: ()
         return {
           id: genId(), company: parts[0]?.trim() || '', position: parts[1]?.trim() || '',
           startDate: '', endDate: '',
-          responsibilities: lines.map((l) => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean),
+          description: lines.map((l) => l.trim()).filter(Boolean).join('\n'),
           status: 'approved' as const,
         };
       }),
@@ -163,6 +163,7 @@ export function SyncResumeDialog({ open, onClose }: { open: boolean; onClose: ()
         skills: item.content, status: 'approved',
       })),
       personalStrengths: [],
+      customSections: store.resumeLibrary.customModules.map((m) => ({ id: m.id, title: m.title, entries: m.entries.map((e) => ({ ...e })) })),
     };
     store.importBuilderDraft(draft);
     store.setCurrentStep(-1);

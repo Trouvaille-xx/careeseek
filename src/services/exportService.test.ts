@@ -16,7 +16,7 @@ const sampleDraft: ResumeBuilderDraft = {
   updatedAt: 1700000000000,
   basicInfo: { name: '张三', phone: '13800000000', email: 'a@b.com', city: '上海', jobIntent: '前端工程师', website: '', summary: '' },
   sectionOrder: ['education', 'workExperience', 'coreSkills'],
-  visibleSections: { education: true, workExperience: true, projects: true, coreSkills: false, personalStrengths: true },
+  visibleSections: { education: true, workExperience: true, projects: true, coreSkills: false, personalStrengths: true, custom: false },
   template: 'classic',
   accentColor: 'slate',
   fontSize: 'medium',
@@ -25,6 +25,7 @@ const sampleDraft: ResumeBuilderDraft = {
   projects: [],
   coreSkills: [{ id: 's1', category: '前端', skills: 'React / TS', status: 'approved' }],
   personalStrengths: [],
+  customSections: [],
 };
 
 describe('buildExportJSON', () => {

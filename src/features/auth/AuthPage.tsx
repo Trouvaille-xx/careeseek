@@ -2,6 +2,7 @@
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Logo } from '@/components/ui/Brand';
 import { track } from '@/services/tracker';
 
 /** 左侧品牌展示面板（双栏布局用） */
@@ -17,9 +18,7 @@ function BrandPanel() {
         {/* Logo */}
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+            <Logo className="w-5 h-5 text-white" />
           </div>
           <span className="text-lg font-semibold text-white">CareeSeek</span>
         </div>
@@ -156,9 +155,7 @@ export function AuthPage() {
             className="flex items-center gap-2 md:hidden"
           >
             <div className="w-7 h-7 rounded-lg bg-primary-100 dark:bg-neutral-700 flex items-center justify-center">
-              <svg className="w-4 h-4 text-primary-600 dark:text-primary-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <Logo className="w-4 h-4 text-slate-900 dark:text-neutral-100" />
             </div>
             <span className="text-sm font-semibold text-slate-900 dark:text-neutral-100">CareeSeek</span>
           </button>

@@ -1,0 +1,30 @@
+graph TD
+  S1["步骤 1 · 输入<br/>InputPage<br/>jdContent + resumeContent"]
+  S2["步骤 2 · JD 解析<br/>JDParserPage<br/>SSE 流式<br/>→ jdAnalysis"]
+  S3["步骤 3 · 简历诊断<br/>DiagnosisPage<br/>JSON<br/>→ diagnosis"]
+  S4["步骤 4 · 匹配分析<br/>MatchingPage<br/>JSON<br/>→ matchingRows"]
+  S5["步骤 5 · 经历追问<br/>ExperiencePage<br/>JSON<br/>→ followUpQuestions"]
+  S6["步骤 6 · 简历优化<br/>OptimizationPage<br/>JSON<br/>→ optimizationItems"]
+  S7["步骤 7 · 最终简历<br/>FinalResumePage<br/>JSON<br/>→ finalResume"]
+  S8["步骤 8 · 面试准备<br/>InterviewPage<br/>JSON<br/>→ interviewerPersona"]
+
+  Start(["用户点击<br/>开始分析"]) --> S1
+  S1 -->|startAnalysis| S2
+  S2 -. "自动" .-> S3
+  S3 -. "自动" .-> S4
+  S4 -. "自动" .-> S5
+  S5 -->|用户点下一步| S6
+  S6 -->|用户点下一步| S7
+  S7 -->|用户点下一步| S8
+  S8 --> Done(["SyncResumeDialog<br/>同步到简历库"])
+
+  S8 -. "interviewerPersona" .-> Mock["独立<br/>MockInterviewPage<br/>多轮对话"]
+  S7 -. "finalResume" .-> Draft["resumeDraftService<br/>→ 简历制作器"]
+  S7 -. "JSON / PDF" .-> Export["exportService"]
+
+  classDef auto fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef manual fill:#fef9c3,stroke:#ca8a04,color:#713f12
+  classDef done fill:#e0e7ff,stroke:#4f46e5,color:#312e81
+  class S2,S3,S4,S5 auto
+  class S6,S7,S8 manual
+  class Start,Done done

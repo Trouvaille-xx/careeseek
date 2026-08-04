@@ -59,7 +59,7 @@ export function finalResumeToDraft(
       workExperience.push({
         id: genId(), company: parts[0]?.trim() ?? '', position: parts[1]?.trim() ?? '',
         startDate: '', endDate: '',
-        responsibilities: lines.map((l) => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean),
+        description: lines.map((l) => l.trim()).filter(Boolean).join('\n'),
         status: 'approved',
       });
     });
@@ -94,6 +94,8 @@ export function finalResumeToDraft(
   }
 
   const sectionOrder: BuilderSectionKey[] = ['education', 'workExperience', 'projects', 'coreSkills', 'personalStrengths'];
+  const customSections = library.customModules.map((m) => ({ id: m.id, title: m.title, entries: m.entries.map((e) => ({ ...e })) }));
+  if (customSections.length > 0) sectionOrder.push('custom');
 
   return {
     id: `draft-${genId()}`,
@@ -107,6 +109,7 @@ export function finalResumeToDraft(
       projects: projects.length > 0,
       coreSkills: coreSkills.length > 0,
       personalStrengths: false,
+      custom: customSections.length > 0,
     },
     template: 'classic',
     accentColor: 'slate',
@@ -116,5 +119,6 @@ export function finalResumeToDraft(
     projects,
     coreSkills,
     personalStrengths: [],
+    customSections,
   };
 }

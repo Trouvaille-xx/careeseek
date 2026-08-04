@@ -9,7 +9,7 @@ interface StepProgressBarProps {
 
 export function StepProgressBar({ currentStep, stepStatuses, onStepClick }: StepProgressBarProps) {
   return (
-    <div className="flex items-center gap-0 px-8 py-4 border-b border-slate-100 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+    <div className="flex items-center gap-0 px-4 sm:px-8 py-4 border-b border-slate-100 bg-white overflow-x-auto scrollbar-thin dark:border-neutral-800 dark:bg-neutral-950">
       {STEPS.map((step, index) => {
         const status = stepStatuses[step.id] || 'locked';
         const isActive = step.id === currentStep;
@@ -71,11 +71,11 @@ export function StepProgressBar({ currentStep, stepStatuses, onStepClick }: Step
               <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-200 shrink-0 ${circleStyle}`}>
                 {circleContent}
               </div>
-              <span className={`text-[10px] leading-tight text-center transition-colors duration-200 max-w-14 truncate ${labelStyle}`}>
+              <span className={`hidden sm:block text-[10px] leading-tight text-center transition-colors duration-200 max-w-14 truncate ${labelStyle}`}>
                 {step.label}
               </span>
               {status === 'loading' && (
-                <span className="text-[8px] text-primary-400 animate-pulse">分析中...</span>
+                <span className="hidden sm:block text-[8px] text-primary-400 animate-pulse">分析中...</span>
               )}
             </button>
             {!isLast && (

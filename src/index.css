@@ -42,6 +42,11 @@
     background-color: #334155;
   }
 
+  .preview-break-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .animate-stagger-1 { animation-delay: 0.1s; }
   .animate-stagger-2 { animation-delay: 0.2s; }
   .animate-stagger-3 { animation-delay: 0.3s; }

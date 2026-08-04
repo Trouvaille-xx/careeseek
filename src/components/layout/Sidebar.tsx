@@ -4,15 +4,39 @@ import { THEME_OPTIONS } from '@/utils/theme';
 
 interface SidebarProps {
   onNewAnalysis: () => void;
+  /** 移动端：是否展开抽屉 */
+  mobileOpen?: boolean;
+  /** 移动端：导航后关闭抽屉 */
+  onClose?: () => void;
 }
 
-export function Sidebar({ onNewAnalysis }: SidebarProps) {
+export function Sidebar({ onNewAnalysis, mobileOpen = false, onClose }: SidebarProps) {
   const { currentStep, auth, plans, setCurrentStep, themeMode, setThemeMode } = useAppStore();
   const [accountOpen, setAccountOpen] = useState(false);
   const planName = plans.find((p) => p.id === auth.user?.plan)?.name;
 
+  /** 进入工具页（标记已进入，之后"简历分析"菜单回工作台而非落地页） */
+  const goTool = (step: number) => {
+    useAppStore.getState().setLandingSeen(true);
+    setCurrentStep(step);
+    onClose?.();
+  };
+
   return (
-    <nav className="w-52 border-r border-slate-200 bg-white flex flex-col shrink-0 dark:border-neutral-800 dark:bg-neutral-950">
+    <>
+      {/* 移动端抽屉遮罩 */}
+      <div
+        className={`fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-200 lg:hidden ${
+          mobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+      />
+      {/* 抽屉本体：桌面 lg+ 常驻；移动端 slide-in */}
+      <nav
+        className={`fixed lg:static inset-y-0 left-0 z-40 w-52 max-w-[75vw] border-r border-slate-200 bg-white flex flex-col shrink-0 transition-transform duration-200 lg:translate-x-0 lg:shrink-0 dark:border-neutral-800 dark:bg-neutral-950 ${
+          mobileOpen ? 'translate-x-0 shadow-2xl lg:shadow-none' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
         {/* Menu items */}
         <div className="flex flex-col gap-0.5 p-3">
           <MenuItem
@@ -23,7 +47,7 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
             }
             label="简历分析"
             active={currentStep >= 0}
-            onClick={() => setCurrentStep(0)}
+            onClick={() => goTool(0)}
           />
           <MenuItem
             icon={
@@ -33,7 +57,7 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
             }
             label="简历库"
             active={currentStep === -1}
-            onClick={() => setCurrentStep(-1)}
+            onClick={() => goTool(-1)}
           />
           <MenuItem
             icon={
@@ -43,7 +67,7 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
             }
             label="投递跟踪"
             active={currentStep === -3}
-            onClick={() => setCurrentStep(-3)}
+            onClick={() => goTool(-3)}
           />
           <MenuItem
             icon={
@@ -54,7 +78,7 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
             }
             label="模拟面试"
             active={currentStep === -2}
-            onClick={() => setCurrentStep(-2)}
+            onClick={() => goTool(-2)}
           />
         </div>
 
@@ -136,7 +160,7 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
                       label="设置"
                       onClick={() => {
                         setAccountOpen(false);
-                        setCurrentStep(-4);
+                        goTool(-4);
                       }}
                     />
                     <MenuRow
@@ -184,7 +208,7 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
                       label="登录 / 注册"
                       onClick={() => {
                         setAccountOpen(false);
-                        setCurrentStep(-5);
+                        goTool(-5);
                       }}
                     />
 
@@ -198,7 +222,7 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
                       label="设置"
                       onClick={() => {
                         setAccountOpen(false);
-                        setCurrentStep(-4);
+                        goTool(-4);
                       }}
                     />
                   </>
@@ -206,7 +230,9 @@ export function Sidebar({ onNewAnalysis }: SidebarProps) {
               </div>
             </>
           )}
-        </div>      </nav>
+        </div>
+      </nav>
+    </>
   );
 }
 

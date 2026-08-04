@@ -18,20 +18,20 @@ export interface Plan {
 
 export const PLANS: Record<Plan['id'], Plan> = {
   free: { id: 'free', name: '免费版', priceCny: 0, pointLimit: 1000 },
-  pro: { id: 'pro', name: 'Pro', priceCny: 1900, pointLimit: 30000 },
-  power: { id: 'power', name: 'Power', priceCny: 4900, pointLimit: 100000 },
+  pro: { id: 'pro', name: 'Pro', priceCny: 1900, pointLimit: 5000 },
+  power: { id: 'power', name: 'Power', priceCny: 4900, pointLimit: 50000 },
 };
 
 export const PLAN_IDS = Object.keys(PLANS) as Plan['id'][];
 
-/** 当月（自然月）已用 token 数 */
+/** 当月（自然月）已用 token 数（仅计积分模式，BYOK 透传 cost_cent=0 不计入配额） */
 export function monthTokensUsed(db: Database.Database, userId: string, now = Date.now()): number {
   const d = new Date(now);
   const start = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
   const row = db
     .prepare(
       `SELECT COALESCE(SUM(prompt_tokens + completion_tokens), 0) AS used
-       FROM llm_usage WHERE user_id = ? AND created_at >= ?`
+       FROM llm_usage WHERE user_id = ? AND created_at >= ? AND cost_cent > 0`
     )
     .get(userId, start) as { used: number };
   return row.used;
@@ -46,6 +46,6 @@ export function tokensToPoints(tokens: number): number {
 export function checkQuota(db: Database.Database, userId: string, planId: Plan['id'], now = Date.now()): { ok: boolean; used: number; limit: number } {
   const plan = PLANS[planId] ?? PLANS.free;
   const usedTokens = monthTokensUsed(db, userId, now);
-  const used = tokensToPoints(usedTokens);
+  const used = usedTokens > 0 ? tokensToPoints(usedTokens) : 0;
   return { ok: used < plan.pointLimit, used, limit: plan.pointLimit };
 }

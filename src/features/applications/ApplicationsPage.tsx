@@ -74,7 +74,7 @@ export function ApplicationsPage() {
   return (
     <div className="animate-fade-in max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="text-xl font-semibold text-slate-900 dark:text-neutral-100 mb-1">投递跟踪</h2>
           <p className="text-sm text-slate-500 dark:text-neutral-400">记录各岗位的投递进度，跟进笔试与面试安排</p>
@@ -128,7 +128,7 @@ export function ApplicationsPage() {
           return (
             <Card key={app.id} padding="lg" className={expanded ? '' : 'hover:border-slate-300 dark:hover:border-neutral-600 transition-colors'}>
               {/* Header row */}
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start justify-between gap-2 sm:gap-4">
                 <button className="flex-1 min-w-0 text-left" onClick={() => setExpandedId(expanded ? null : app.id)}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-semibold text-slate-900 dark:text-neutral-100 truncate">{app.position}</span>
@@ -139,10 +139,10 @@ export function ApplicationsPage() {
                   <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-neutral-400">
                     <span className="truncate">{app.company}</span>
                     {app.source && <span className="shrink-0 text-slate-400 dark:text-neutral-500">· {app.source}</span>}
-                    <span className="shrink-0 text-slate-400 dark:text-neutral-500">· 更新于 {fmtDate(app.updatedAt)}</span>
+                    <span className="shrink-0 text-slate-400 dark:text-neutral-500 hidden sm:inline">· 更新于 {fmtDate(app.updatedAt)}</span>
                   </div>
                 </button>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${meta.badge}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
                     {meta.label}
@@ -422,7 +422,7 @@ function AddApplicationDialog({ open, onClose, onSubmit }: {
           <Field label="岗位 *">
             <input value={position} onChange={(e) => setPosition(e.target.value)} placeholder="如：高级前端工程师" className={inputCls} />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="投递渠道">
               <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="如：Boss直聘" className={inputCls} />
             </Field>
