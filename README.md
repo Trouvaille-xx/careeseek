@@ -47,15 +47,47 @@ start-mock.bat         # 或: $env:UPSTREAM_BASE_URL='https://api.deepseek.com/v
 
 ## 生产部署（腾讯云轻量）
 
-1. **构建镜像**：`docker build -t careeseek .`
-2. **配置环境变量**（`server/.env.example` 参考）：
-   - `UPSTREAM_BASE_URL` / `UPSTREAM_API_KEY`：托管 LLM 的上游 key
-   - `PAY_MODE=mock`：先 mock，有商户号后切 `wechat`
-3. **启动**：`docker compose up -d`（含数据卷持久化 SQLite）
-4. **Nginx**：`deploy/nginx.conf` 反代 + HTTPS（Let's Encrypt），`proxy_buffering off` 保 SSE
-5. **验证**：`https://你的域名/health` → `{"ok":true}`
+服务器：`<YOUR_SERVER_IP>`（SSH 用户 `ubuntu`，key `~/.ssh/your_deploy_key`），项目目录 `/opt/careeseek`（非 git 仓库，源码由本地打包上传）。
 
-> 注意：Docker Hub 网络受限时，先配置国内镜像加速（`/etc/docker/daemon.json` 的 `registry-mirrors`）。
+**首次/更换机器时配置：**
+
+1. **放源码**：把本项目打包传到 `/opt/careeseek`（`deploy/deploy.ps1` 会自动做）
+2. **配置上游环境**（服务器上创建 `/opt/careeseek/.env.deploy`，权限 600，会被部署脚本自动读取）：
+   ```bash
+   UPSTREAM_BASE_URL=https://api.minimax.chat/v1
+   UPSTREAM_API_KEY=sk-xxx          # 托管 LLM 上游 key
+   PAY_MODE=mock                    # 先 mock，有商户号后切 wechat
+   ```
+
+**日常发版（Windows 本地一键）：**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
+```
+
+脚本做的事：打包源码（排除 node_modules/dist/.git）→ 上传服务器 → 备份旧源码到 `/opt/careeseek.backup-时间戳` → 清理旧容器（**数据卷 `careeseek-data` 保留，SQLite 不丢**）→ `docker-compose up -d --build`。
+
+**手动步骤（等价命令）：**
+
+```bash
+# 本机打包上传
+tar -czf careeseek_deploy.tgz --exclude=node_modules --exclude=dist --exclude=.git --exclude=pako.min.js .
+scp -i ~/.ssh/your_deploy_key careeseek_deploy.tgz ubuntu@<YOUR_SERVER_IP>:/tmp/
+
+# 服务器上
+cd /opt/careeseek && tar -xzf /tmp/careeseek_deploy.tgz
+docker rm -f careeseek careeseek_careeseek_1 2>/dev/null   # 释放 3001 端口
+docker-compose up -d --build
+```
+
+**注意事项：**
+
+- 服务器装的是 **docker-compose v1（1.29.2）**，必须用 `docker-compose`（带横杠），不支持 `docker compose` 子命令
+- 服务器上不要删除 `careeseek-data` 数据卷（存账号/配额/用量）
+- 若镜像构建用旧缓存导致看不到新代码，加 `--no-cache` 重建
+- Nginx：`deploy/nginx.conf` 反代 + HTTPS（Let's Encrypt），`proxy_buffering off` 保 SSE
+- 验证：`curl http://<YOUR_SERVER_IP>:3001/health` → `{"ok":true}`
+- Docker Hub 网络受限时，先配置国内镜像加速（`/etc/docker/daemon.json` 的 `registry-mirrors`）
 
 ## 规格文档
 

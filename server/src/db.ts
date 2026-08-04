@@ -25,6 +25,7 @@ export function migrate(db: Database.Database): void {
       password_hash TEXT NOT NULL,
       plan TEXT NOT NULL DEFAULT 'free',
       plan_expires_at INTEGER,
+      role TEXT NOT NULL DEFAULT 'user',
       created_at INTEGER NOT NULL
     );
 
@@ -74,5 +75,29 @@ export function migrate(db: Database.Database): void {
       expires_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id);
+
+    CREATE TABLE IF NOT EXISTS prompts (
+      key TEXT PRIMARY KEY,
+      content TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1,
+      updated_by TEXT,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS prompt_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL,
+      content TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      action TEXT NOT NULL DEFAULT 'update',
+      created_by TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_prompt_versions_key ON prompt_versions(key);
   `);
+
+  // 老库升级：users 表补 role 列（幂等）
+  const cols = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === 'role')) {
+    db.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'");
+  }
 }

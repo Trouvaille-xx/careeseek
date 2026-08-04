@@ -22,9 +22,11 @@ CareeSeek — 中文 AI 简历工作台。React 18 + TypeScript + Vite + Zustand
 - `src/services/analysisService.ts` — 业务层，所有 AI 功能入口
 - `src/services/exportService.ts` — 导出：JSON 直接下载、PDF 用 jspdf 动态导入（CJK 字体从 GitHub 下载嵌入，失败降级 helvetica）
 - `src/services/resumeDraftService.ts` — finalResume → builder 草稿转换（模板排版）
-- `src/services/prompts.ts` — 全部 LLM 系统提示词与 prompt 构建函数
+- `src/services/prompts.ts` — 全部 LLM 提示词模板（DEFAULTS 21 键，`{占位符}` 定义）+ 渲染函数 `render()`；支持服务端覆盖（见 Gotchas）
+- `src/services/promptOverrides.ts` — 提示词服务端覆盖缓存：localStorage + 30 分钟刷新 + 静默失败回退默认；`loadOverridesFromCache()`（启动）+ `loadPromptOverrides()`（登录后）
 - `src/features/<step>/` — 每步一个页面；`applications/` 投递跟踪站；`resume-builder/` 简历制作
-- `server/src/` — Fastify 后端：`index.ts`(入口+静态服务) `db.ts`(SQLite schema) `auth.ts`(注册登录+token) `proxy.ts`(LLM 代理 SSE透传+记账) `pricing.ts`(模型单价+峰谷) `plans.ts`(套餐+配额) `routes/`(chat/events/payments)
+- `src/admin/` — 管理后台独立 bundle（admin.html 多入口）：`AdminApp.tsx` + `views/{DashboardView,UsersView,PromptsView}`；PromptsView 按功能分组（system+prompt 配对同屏编辑）+ 版本历史/回滚 + **Eva 评审**
+- `server/src/` — Fastify 后端：`index.ts`(入口+静态服务) `db.ts`(SQLite schema) `auth.ts`(注册登录+token+ADMIN_EMAILS 提权) `proxy.ts`(LLM 代理 SSE透传+记账) `pricing.ts`(模型单价+峰谷) `plans.ts`(套餐+配额) `routes/`(chat/events/payments/prompts/admin/eva)
 - `src/types/index.ts` — 所有共享类型
 
 ## Gotchas
@@ -42,3 +44,8 @@ CareeSeek — 中文 AI 简历工作台。React 18 + TypeScript + Vite + Zustand
 - 后端 `getProxyBase()` 默认同域 `/v1`（生产同域）；开发期 vite proxy 转发到 3001
 - 生产模式 Fastify 服务前端 `dist/` 静态文件 + SPA fallback；nginx 需 `proxy_buffering off` 保 SSE
 - 运行 app 双通道：未登录 BYOK（设置页填 key）或登录走托管代理；API Key 默认 gpt-4o，代理默认 deepseek-v4-flash
+- **管理后台**：`/admin` 独立入口（admin.html + src/admin/），登录校验 `role=admin`（admin token 存 `careeseek-admin-token`，与主应用隔离）；提权靠 `ADMIN_EMAILS`（逗号分隔邮箱，启动时 `promoteAdmins`），改名单后需重建容器
+- **提示词服务端覆盖**：`prompts`/`prompt_versions` 表存储覆盖（默认值为空表，前端回退内置 DEFAULTS）；PUT 保存新版本、rollback 按版本回滚；`GET /v1/prompts` 需登录
+- **Eva 评审**：`POST /v1/admin/eva/review`（admin 鉴权，服务端直调上游 LLM，模型 `EVA_MODEL` 默认 MiniMax-M3，不记账不耗配额）；评审维度：约束力/JSON 规范性/占位符完整性/指令冲突/冗余
+- **部署（docker-compose v1.29.2）**：`deploy/deploy.ps1` 打包（排除 node_modules/dist/.git/pako.min.js）→ scp → `server-deploy.sh` 备份+解压+`docker-compose up -d --build`；`.env.deploy` 存真实上游配置（含 API Key，勿入库），compose environment 需显式声明 `ADMIN_EMAILS: ${ADMIN_EMAILS:-}` 才会传入容器
+- **docker-compose v1 陷阱**：`up --force-recreate` 在旧 compose + 新 Docker 上报 `KeyError: 'ContainerConfig'` 并删掉旧容器；正确重建姿势是 `docker rm -f <容器>` + `docker-compose up -d`（数据卷 careeseek-data 保留 SQLite 不丢）

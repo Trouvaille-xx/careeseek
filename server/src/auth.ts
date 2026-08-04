@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type Database from 'better-sqlite3';
 import crypto from 'node:crypto';
 
-interface AuthRow { id: string; password_hash: string; plan: string; }
+interface AuthRow { id: string; password_hash: string; plan: string; role: string; }
 
 function sha256(s: string): string {
   return crypto.createHash('sha256').update(s).digest('hex');
@@ -53,7 +53,7 @@ export function attachAuthRoutes(app: FastifyInstance): void {
     db.prepare('INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)')
       .run(hash, id, now, now + 30 * 24 * 3600_000);
 
-    return reply.status(201).send({ token, user: { id, email, plan: 'free' } });
+    return reply.status(201).send({ token, user: { id, email, plan: 'free', role: 'user' } });
   });
 
   app.post('/v1/auth/login', async (req, reply) => {
@@ -67,7 +67,7 @@ export function attachAuthRoutes(app: FastifyInstance): void {
     const now = Date.now();
     db.prepare('INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)')
       .run(hash, user.id, now, now + 30 * 24 * 3600_000);
-    return reply.send({ token, user: { id: user.id, email, plan: user.plan } });
+    return reply.send({ token, user: { id: user.id, email, plan: user.plan, role: user.role } });
   });
 
   app.post('/v1/auth/logout', async (req, reply) => {
@@ -98,12 +98,34 @@ export function getAuth(req: FastifyRequest): { userId: string; tokenHash: strin
   return { userId: row.user_id, tokenHash };
 }
 
-/** 从 token 取用户信息（含套餐） */
-export function getUserByToken(db: Database.Database, req: FastifyRequest): { id: string; email: string; plan: string } | null {
+/** 从 token 取用户信息（含套餐与角色） */
+export function getUserByToken(db: Database.Database, req: FastifyRequest): { id: string; email: string; plan: string; role: string } | null {
   const auth = getAuth(req);
   if (!auth) return null;
-  const user = db.prepare('SELECT id, email, plan FROM users WHERE id = ?').get(auth.userId) as
-    | { id: string; email: string; plan: string }
+  const user = db.prepare('SELECT id, email, plan, role FROM users WHERE id = ?').get(auth.userId) as
+    | { id: string; email: string; plan: string; role: string }
     | undefined;
   return user ?? null;
+}
+
+/** 仅管理员可访问的鉴权包装：返回 user（含 role）或 null */
+export function getAdminByToken(db: Database.Database, req: FastifyRequest): { id: string; email: string; role: string } | null {
+  const user = getUserByToken(db, req);
+  if (!user || user.role !== 'admin') return null;
+  return { id: user.id, email: user.email, role: user.role };
+}
+
+/**
+ * 初始化管理员：把 ADMIN_EMAILS（逗号分隔的邮箱）对应的用户提升为 admin。
+ * 需在用户注册后调用（服务启动时 + 注册后），使首个注册用户能直接登录后台。
+ */
+export function promoteAdmins(db: Database.Database): void {
+  const emails = (process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (emails.length === 0) return;
+  const stmt = db.prepare("UPDATE users SET role = 'admin' WHERE lower(email) IN (" +
+    emails.map(() => '?').join(',') + ')');
+  stmt.run(...emails);
 }

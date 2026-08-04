@@ -11,6 +11,7 @@ services:
       UPSTREAM_API_KEY: ${UPSTREAM_API_KEY:-}
       PAY_MODE: ${PAY_MODE:-mock}
       DB_PATH: /app/data/careeseek.db
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
     volumes:
       - careeseek-data:/app/data
 

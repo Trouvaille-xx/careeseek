@@ -23,3 +23,8 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+.gstack/
+
+# 下载产物（deploy 排除，不入库）
+pako.min.js
+public/fonts/

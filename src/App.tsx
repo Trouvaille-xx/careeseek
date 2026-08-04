@@ -20,6 +20,7 @@ import { SyncResumeDialog } from '@/features/resume-library/SyncResumeDialog';
 import { UpgradeDialog } from '@/components/ui/PlansDialog';
 import { analysisService } from '@/services/analysisService';
 import { initTracker, track } from '@/services/tracker';
+import { loadOverridesFromCache, loadPromptOverrides } from '@/services/promptOverrides';
 import { Button } from '@/components/ui/Button';
 import { applyTheme, watchSystemTheme } from '@/utils/theme';
 
@@ -54,6 +55,8 @@ function App() {
     setQuotaError,
     auth,
     analysisHistory,
+    landingSeen,
+    setLandingSeen,
   } = useAppStore();
 
   useEffect(() => {
@@ -65,17 +68,19 @@ function App() {
     }
   }, [themeMode]);
 
-  // 启动：恢复埋点缓冲、刷新登录态、拉取套餐
+  // 启动：恢复埋点缓冲、刷新登录态、拉取套餐、加载提示词覆盖
   useEffect(() => {
     initTracker();
+    loadOverridesFromCache();
     const store = useAppStore.getState();
     if (store.auth.token) {
       void store.refreshAuth();
+      void loadPromptOverrides();
     } else {
       track('app_open', { is_first: 'yes' });
     }
     void store.fetchPlans();
-  }, []);
+  }, [auth.token]);
 
   const processingRef = useRef<Set<number>>(new Set());
   const [showSyncDialog, setShowSyncDialog] = useState(false);
@@ -344,9 +349,8 @@ function App() {
       case -2: return <MockInterviewPage />;
       case -1: return <ResumeLibraryPage />;
       case 0: {
-        // 新访客（未登录且无历史）→ 产品落地页；否则 → 分析工作台
-        const hasData = auth.user !== null || analysisHistory.length > 0;
-        return hasData ? <AnalysisHomePage /> : <LandingPage />;
+        // 全新访客（未登录/无历史/未进入过）→ 产品落地页；否则 → 分析工作台
+        return isNewVisitor ? <LandingPage /> : <AnalysisHomePage />;
       }
       case 1: return <InputPage />;
       case 2: return <JDParserPage />;
@@ -363,7 +367,8 @@ function App() {
   const isAnalysisStep = currentStep >= 1 && currentStep <= 8;
   const isLastStep = currentStep === 8;
   const ready = stepReady[currentStep];
-  const isBarePage = currentStep === -5 || (currentStep === 0 && auth.user === null && analysisHistory.length === 0);
+  const isNewVisitor = auth.user === null && analysisHistory.length === 0 && !landingSeen;
+  const isBarePage = currentStep === -5 || (currentStep === 0 && isNewVisitor);
 
   return (
     <MainLayout bare={isBarePage}>

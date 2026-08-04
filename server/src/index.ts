@@ -5,10 +5,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openDb } from './db.js';
-import { attachAuthRoutes } from './auth.js';
+import { attachAuthRoutes, promoteAdmins } from './auth.js';
 import { attachChatRoutes } from './routes/chat.js';
 import { attachEventsRoutes } from './routes/events.js';
 import { attachPaymentsRoutes } from './routes/payments.js';
+import { attachPromptsRoutes } from './routes/prompts.js';
+import { attachAdminRoutes } from './routes/admin.js';
+import { attachEvaRoutes } from './routes/eva.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = process.env.DIST_DIR ?? path.join(__dirname, '..', '..', 'dist');
@@ -24,6 +27,7 @@ declare module 'fastify' {
 
 const app: FastifyInstance = Fastify({ logger: true });
 app.decorate('db', openDb());
+promoteAdmins(app.db);
 
 // CORS（托管版前端同域部署时不需要；开发期允许 vite 端口）
 await app.register(async (instance) => {
@@ -36,7 +40,7 @@ await app.register(async (instance) => {
     if (origin && corsOrigins.includes(origin)) {
       reply.header('Access-Control-Allow-Origin', origin);
       reply.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-      reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-Api-Key, X-User-Base-Url, X-User-Model');
       reply.header('Access-Control-Allow-Credentials', 'true');
     }
     if (req.method === 'OPTIONS') return reply.status(204).send();
@@ -49,12 +53,16 @@ attachAuthRoutes(app);
 attachChatRoutes(app);
 attachEventsRoutes(app);
 attachPaymentsRoutes(app);
+attachPromptsRoutes(app);
+attachAdminRoutes(app);
+attachEvaRoutes(app);
 
 app.get('/health', async () => ({ ok: true, ts: Date.now() }));
 
 // 静态文件服务（生产同域部署；dist 存在时启用）
 if (fs.existsSync(DIST_DIR)) {
   const assetsDir = path.join(DIST_DIR, 'assets');
+  const adminHtml = path.join(DIST_DIR, 'admin.html');
   app.get<{ Params: { '*': string } }>('/assets/*', async (req, reply) => {
     const rest = (req.params as { '*': string })['*'];
     const file = path.join(assetsDir, rest ?? '');
@@ -66,6 +74,17 @@ if (fs.existsSync(DIST_DIR)) {
     if (mime) reply.type(mime);
     return reply.send(fs.readFileSync(file));
   });
+
+  // 管理后台（独立 bundle，/admin 前缀）
+  if (fs.existsSync(adminHtml)) {
+    app.get<{ Params: { '*': string } }>('/admin/*', async (_req, reply) => {
+      reply.type('text/html').send(fs.readFileSync(adminHtml));
+    });
+    app.get('/admin', async (_req, reply) => {
+      reply.type('text/html').send(fs.readFileSync(adminHtml));
+    });
+  }
+
   app.get('/*', async (_req, reply) => {
     reply.type('text/html').send(fs.readFileSync(path.join(DIST_DIR, 'index.html')));
   });
