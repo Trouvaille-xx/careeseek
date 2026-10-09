@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { getAdminByToken, getUserByToken } from '../auth.js';
+import { getPromptAdmin, getUserByToken } from '../auth.js';
 
 /**
  * 提示词管理。
@@ -33,6 +33,12 @@ export const PROMPT_KEYS = new Set([
   'interview_prep_prompt',
   'interview_system',
   'interview_followup_prompt',
+  'cover_letter_system',
+  'cover_letter_prompt',
+  'bilingual_system',
+  'bilingual_prompt',
+  'review_system',
+  'review_prompt',
 ]);
 
 interface PromptRow {
@@ -55,7 +61,7 @@ export function attachPromptsRoutes(app: FastifyInstance): void {
   });
 
   app.get('/v1/admin/prompts', async (req, reply) => {
-    const admin = getAdminByToken(app.db, req);
+    const admin = getPromptAdmin(app.db, req);
     if (!admin) return reply.status(401).send({ error: '无权限' });
     const rows = app.db
       .prepare('SELECT key, content, version, updated_by, updated_at FROM prompts')
@@ -64,7 +70,7 @@ export function attachPromptsRoutes(app: FastifyInstance): void {
   });
 
   app.put('/v1/admin/prompts/:key', async (req, reply) => {
-    const admin = getAdminByToken(app.db, req);
+    const admin = getPromptAdmin(app.db, req);
     if (!admin) return reply.status(401).send({ error: '无权限' });
 
     const key = (req.params as { key: string }).key;
@@ -95,7 +101,7 @@ export function attachPromptsRoutes(app: FastifyInstance): void {
   });
 
   app.get('/v1/admin/prompts/:key/versions', async (req, reply) => {
-    const admin = getAdminByToken(app.db, req);
+    const admin = getPromptAdmin(app.db, req);
     if (!admin) return reply.status(401).send({ error: '无权限' });
     const key = (req.params as { key: string }).key;
     if (!PROMPT_KEYS.has(key)) return reply.status(400).send({ error: '未知的提示词键' });
@@ -108,7 +114,7 @@ export function attachPromptsRoutes(app: FastifyInstance): void {
   });
 
   app.post('/v1/admin/prompts/:key/rollback', async (req, reply) => {
-    const admin = getAdminByToken(app.db, req);
+    const admin = getPromptAdmin(app.db, req);
     if (!admin) return reply.status(401).send({ error: '无权限' });
 
     const key = (req.params as { key: string }).key;

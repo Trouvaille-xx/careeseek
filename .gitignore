@@ -24,6 +24,7 @@ npm-debug.log*
 .env.*
 !.env.example
 .gstack/
+.claude/
 
 # 下载产物（deploy 排除，不入库）
 pako.min.js

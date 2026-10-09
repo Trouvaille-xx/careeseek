@@ -12,6 +12,7 @@ import { attachPaymentsRoutes } from './routes/payments.js';
 import { attachPromptsRoutes } from './routes/prompts.js';
 import { attachAdminRoutes } from './routes/admin.js';
 import { attachEvaRoutes } from './routes/eva.js';
+import { attachAsrRoutes } from './routes/asr.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST_DIR = process.env.DIST_DIR ?? path.join(__dirname, '..', '..', 'dist');
@@ -28,6 +29,9 @@ declare module 'fastify' {
 const app: FastifyInstance = Fastify({ logger: true });
 app.decorate('db', openDb());
 promoteAdmins(app.db);
+
+// multipart 文件上传（ASR 录音）
+await app.register((await import('@fastify/multipart')).default, { limits: { fileSize: 50 * 1024 * 1024 } });
 
 // CORS（托管版前端同域部署时不需要；开发期允许 vite 端口）
 await app.register(async (instance) => {
@@ -56,6 +60,7 @@ attachPaymentsRoutes(app);
 attachPromptsRoutes(app);
 attachAdminRoutes(app);
 attachEvaRoutes(app);
+attachAsrRoutes(app);
 
 app.get('/health', async () => ({ ok: true, ts: Date.now() }));
 

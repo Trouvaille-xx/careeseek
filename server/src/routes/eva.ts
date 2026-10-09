@@ -11,7 +11,7 @@ import { PROMPT_KEYS } from './prompts.js';
 
 const UPSTREAM_BASE_URL = (process.env.UPSTREAM_BASE_URL ?? 'https://api.deepseek.com/v1').replace(/\/+$/, '');
 const UPSTREAM_API_KEY = process.env.UPSTREAM_API_KEY ?? '';
-const EVA_MODEL = process.env.EVA_MODEL ?? 'MiniMax-M3';
+const EVA_MODEL = process.env.EVA_MODEL ?? 'deepseek-v4-flash';
 const EVA_TIMEOUT_MS = Number(process.env.EVA_TIMEOUT_MS ?? 90000);
 
 const EVA_SYSTEM = `你叫 Eva，是一名资深提示词工程评审专家，擅长评审中文 AI 应用（简历优化、面试模拟）的 LLM 提示词。

@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -68,7 +68,7 @@ const TABS: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function SettingsPage() {
-  const { apiSettings, setApiSettings, testApiConnection, optimizationStyle, setOptimizationStyle, themeMode, setThemeMode, auth, plans, settingsTab, setSettingsTab } = useAppStore();
+  const { apiSettings, setApiSettings, testApiConnection, optimizationStyle, setOptimizationStyle, themeMode, setThemeMode, auth, plans, settingsTab, setSettingsTab, currentWorkspace, workspaceData, userInput, analysisStatus, analysisHistory } = useAppStore();
   const tab = settingsTab as SettingsTab;
   const [local, setLocal] = useState({ ...apiSettings });
   const [customMode, setCustomMode] = useState(
@@ -150,6 +150,44 @@ export function SettingsPage() {
     localStorage.removeItem(STORAGE_KEY);
     window.location.reload();
   };
+
+  /**
+   * 本地数据体检：数据只存在浏览器里，出问题时用户只能看到「首页空白」。
+   * 这里把存储占用、每个工作区各自的分析进度摊开显示，避免只能靠控制台猜。
+   */
+  const storageDiag = (() => {
+    const summarize = (biz: Record<string, unknown>) => {
+      const statuses = (biz.analysisStatus ?? {}) as Record<string, string>;
+      const input = (biz.userInput ?? {}) as Record<string, string>;
+      return {
+        doneSteps: [2, 3, 4, 5, 6, 7, 8].filter((n) => statuses[n] === 'done'),
+        history: Array.isArray(biz.analysisHistory) ? biz.analysisHistory.length : 0,
+        hasJD: Boolean((input.jdContent ?? '').trim()),
+        hasResume: Boolean((input.resumeContent ?? '').trim()),
+      };
+    };
+    let sizeKB = 0;
+    try {
+      sizeKB = Math.round((localStorage.getItem(STORAGE_KEY)?.length ?? 0) / 1024);
+    } catch {
+      /* 忽略 */
+    }
+    const rows = [
+      {
+        name: currentWorkspace,
+        current: true,
+        ...summarize({ userInput, analysisStatus, analysisHistory } as unknown as Record<string, unknown>),
+      },
+      ...Object.entries(workspaceData)
+        .filter(([name]) => name !== currentWorkspace)
+        .map(([name, biz]) => ({
+          name,
+          current: false,
+          ...summarize((biz ?? {}) as Record<string, unknown>),
+        })),
+    ];
+    return { sizeKB, rows };
+  })();
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 items-stretch lg:items-start">
@@ -530,6 +568,59 @@ export function SettingsPage() {
                   </svg>
                    清除全部数据
                 </Button>
+              </div>
+
+              {/* 本地数据体检 */}
+              <div className="rounded-xl border border-slate-200 dark:border-neutral-700 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-slate-800 dark:text-neutral-200">本地数据体检</h4>
+                  <span
+                    className={
+                      storageDiag.sizeKB > 4000
+                        ? 'text-xs text-red-600 dark:text-red-300'
+                        : 'text-xs text-slate-400'
+                    }
+                  >
+                    已用 {storageDiag.sizeKB} KB（浏览器上限约 5000 KB）
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 -mt-1">
+                  分析内容只存在这台浏览器里。下面按工作区列出各自的分析进度，用于确认数据到底存在哪里。
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-slate-400">
+                        <th className="text-left font-medium py-1.5 pr-3">工作区</th>
+                        <th className="text-left font-medium py-1.5 pr-3">已完成步骤</th>
+                        <th className="text-left font-medium py-1.5 pr-3">历史</th>
+                        <th className="text-left font-medium py-1.5">JD / 简历</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {storageDiag.rows.map((r) => (
+                        <tr key={r.name} className="border-t border-slate-100 dark:border-neutral-700/60">
+                          <td className="py-1.5 pr-3 text-slate-700 dark:text-neutral-300">
+                            {r.name}
+                            {r.current && <span className="ml-1 text-[10px] text-primary-600">当前</span>}
+                          </td>
+                          <td className="py-1.5 pr-3 text-slate-600 dark:text-neutral-400">
+                            {r.doneSteps.length > 0 ? `第 ${r.doneSteps.join('、')} 步` : '无'}
+                          </td>
+                          <td className="py-1.5 pr-3 text-slate-600 dark:text-neutral-400">{r.history} 条</td>
+                          <td className="py-1.5 text-slate-600 dark:text-neutral-400">
+                            {r.hasJD ? '有' : '无'} / {r.hasResume ? '有' : '无'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {storageDiag.rows.every((r) => r.doneSteps.length === 0) && (
+                  <p className="text-xs text-amber-600 dark:text-amber-300">
+                    所有工作区都没有已完成的分析结果：说明要么还没跑过分析，要么此前的写入没有落到本地存储。
+                  </p>
+                )}
               </div>
             </section>
           )}

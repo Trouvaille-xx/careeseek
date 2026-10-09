@@ -12,7 +12,7 @@ CareeSeek — 中文 AI 简历工作台。React 18 + TypeScript + Vite + Zustand
 
 ## Structure
 
-- `src/App.tsx` — 页面路由 + 8 步分析流程编排：步骤 2→5 通过 `analysisStatus` 自动链式触发，6/7/8 按需加载；每步完成状态由 `stepReady` 决定"下一步"是否可用。`currentStep` 约定：-5 登录/注册 / -4 设置 / -3 投递跟踪 / -2 模拟面试 / -1 简历库 / 0 首页（新访客显示 LandingPage，有数据显示 AnalysisHomePage）/ 1-8 分析步骤
+- `src/App.tsx` — 页面路由 + 8 步分析流程编排：步骤 2→5 通过 `analysisStatus` 自动链式触发，6/7/8 按需加载；每步完成状态由 `stepReady` 决定"下一步"是否可用。`currentStep` 约定：-6 面试复盘 / -5 登录/注册 / -4 设置 / -3 投递跟踪 / -2 模拟面试 / -1 简历库 / 0 首页（新访客显示 LandingPage，有数据显示 AnalysisHomePage）/ 1-8 分析步骤
 - `src/features/landing/LandingPage.tsx` — 产品落地页（未登录且无历史的首页）
 - `src/features/auth/AuthPage.tsx` — 登录/注册（邮箱+密码，无邮件验证）
 - `src/components/ui/PlansDialog.tsx` — 套餐购买（mock 支付轮询）+ 402 升级引导（UpgradeDialog）
@@ -22,11 +22,13 @@ CareeSeek — 中文 AI 简历工作台。React 18 + TypeScript + Vite + Zustand
 - `src/services/analysisService.ts` — 业务层，所有 AI 功能入口
 - `src/services/exportService.ts` — 导出：JSON 直接下载、PDF 用 jspdf 动态导入（CJK 字体从 GitHub 下载嵌入，失败降级 helvetica）
 - `src/services/resumeDraftService.ts` — finalResume → builder 草稿转换（模板排版）
-- `src/services/prompts.ts` — 全部 LLM 提示词模板（DEFAULTS 21 键，`{占位符}` 定义）+ 渲染函数 `render()`；支持服务端覆盖（见 Gotchas）
+- `src/services/prompts.ts` — 全部 LLM 提示词模板（DEFAULTS 27 键，`{占位符}` 定义）+ 渲染函数 `render()`；支持服务端覆盖（见 Gotchas）
 - `src/services/promptOverrides.ts` — 提示词服务端覆盖缓存：localStorage + 30 分钟刷新 + 静默失败回退默认；`loadOverridesFromCache()`（启动）+ `loadPromptOverrides()`（登录后）
+- `src/services/asrService.ts` — 语音转文字：`server`（上传后端 Whisper）/ `browser`（浏览器 transformers.js WASM，模型缓存 IndexedDB）/ `text`（纯文本）；`aws` 预留
+- `src/features/interview-review/InterviewReviewPage.tsx` — 面试复盘：本机 AI 面试回放 + 真实面试（录音转写/文本粘贴 → AI 拆解逐题点评）；创建时可绑定本地简历（builderDrafts）、简历分析（analysisHistory）、本机 AI 面试（interviewSessions）
 - `src/features/<step>/` — 每步一个页面；`applications/` 投递跟踪站；`resume-builder/` 简历制作
 - `src/admin/` — 管理后台独立 bundle（admin.html 多入口）：`AdminApp.tsx` + `views/{DashboardView,UsersView,PromptsView}`；PromptsView 按功能分组（system+prompt 配对同屏编辑）+ 版本历史/回滚 + **Eva 评审**
-- `server/src/` — Fastify 后端：`index.ts`(入口+静态服务) `db.ts`(SQLite schema) `auth.ts`(注册登录+token+ADMIN_EMAILS 提权) `proxy.ts`(LLM 代理 SSE透传+记账) `pricing.ts`(模型单价+峰谷) `plans.ts`(套餐+配额) `routes/`(chat/events/payments/prompts/admin/eva)
+- `server/src/` — Fastify 后端：`index.ts`(入口+静态服务) `db.ts`(SQLite schema) `auth.ts`(注册登录+token+ADMIN_EMAILS 提权) `proxy.ts`(LLM 代理 SSE透传+记账) `pricing.ts`(模型单价+峰谷) `plans.ts`(套餐+配额) `routes/`(chat/events/payments/prompts/admin/eva/asr)
 - `src/types/index.ts` — 所有共享类型
 
 ## Gotchas
@@ -47,5 +49,7 @@ CareeSeek — 中文 AI 简历工作台。React 18 + TypeScript + Vite + Zustand
 - **管理后台**：`/admin` 独立入口（admin.html + src/admin/），登录校验 `role=admin`（admin token 存 `careeseek-admin-token`，与主应用隔离）；提权靠 `ADMIN_EMAILS`（逗号分隔邮箱，启动时 `promoteAdmins`），改名单后需重建容器
 - **提示词服务端覆盖**：`prompts`/`prompt_versions` 表存储覆盖（默认值为空表，前端回退内置 DEFAULTS）；PUT 保存新版本、rollback 按版本回滚；`GET /v1/prompts` 需登录
 - **Eva 评审**：`POST /v1/admin/eva/review`（admin 鉴权，服务端直调上游 LLM，模型 `EVA_MODEL` 默认 MiniMax-M3，不记账不耗配额）；评审维度：约束力/JSON 规范性/占位符完整性/指令冲突/冗余
+- **ASR（语音转文字）**：`server/src/routes/asr.ts` 用 `@huggingface/transformers` 跑 Whisper base（首次自动从 HuggingFace 下载缓存到 HF_HOME）；仅支持 WAV 直解，MP3/OGG 需服务器有 ffmpeg；前端 `browser` 模式用同一库在浏览器 WASM 跑（模型缓存 IndexedDB），transformers.web 被 vite 拆为独立 chunk 懒加载；`GET /v1/asr/transcribe` 需登录
+- **面试复盘绑定**：真实面试记录存 `realInterviews`（localStorage），可关联 builderDrafts（简历快照深拷贝进 `linkedResume`）、analysisHistory（`linkedAnalysisId`）、interviewSessions（`linkedSessionId`）；分析用 `review_system/review_prompt` 提示词，JSON 输出
 - **部署（docker-compose v1.29.2）**：`deploy/deploy.ps1` 打包（排除 node_modules/dist/.git/pako.min.js）→ scp → `server-deploy.sh` 备份+解压+`docker-compose up -d --build`；`.env.deploy` 存真实上游配置（含 API Key，勿入库），compose environment 需显式声明 `ADMIN_EMAILS: ${ADMIN_EMAILS:-}` 才会传入容器
 - **docker-compose v1 陷阱**：`up --force-recreate` 在旧 compose + 新 Docker 上报 `KeyError: 'ContainerConfig'` 并删掉旧容器；正确重建姿势是 `docker rm -f <容器>` + `docker-compose up -d`（数据卷 careeseek-data 保留 SQLite 不丢）

@@ -1,5 +1,6 @@
-﻿import { useEffect, useRef, useState } from 'react';
-import { useAppStore } from '@/stores/useAppStore';
+import { useEffect, useRef, useState } from 'react';
+import { useAppStore, pickResumeStep } from '@/stores/useAppStore';
+import type { AnalysisStatus } from '@/types';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { InputPage } from '@/features/input/InputPage';
 import { JDParserPage } from '@/features/jd-parser/JDParserPage';
@@ -16,6 +17,8 @@ import { ResumeLibraryPage } from '@/features/resume-library/ResumeLibraryPage';
 import { MockInterviewPage } from '@/features/interview/MockInterviewPage';
 import { ApplicationsPage } from '@/features/applications/ApplicationsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
+import { InterviewReviewPage } from '@/features/interview-review/InterviewReviewPage';
+import { PromptAdminPage } from '@/features/prompt-admin/PromptAdminPage';
 import { SyncResumeDialog } from '@/features/resume-library/SyncResumeDialog';
 import { UpgradeDialog } from '@/components/ui/PlansDialog';
 import { analysisService } from '@/services/analysisService';
@@ -53,6 +56,8 @@ function App() {
     themeMode,
     quotaError,
     setQuotaError,
+    storageError,
+    freeUpStorage,
     auth,
     analysisHistory,
     landingSeen,
@@ -104,6 +109,47 @@ function App() {
       syncPromptedRef.current = false;
     }
   }, [currentStep]);
+
+  // 分析关键步骤完成时自动保存历史（防止完成分析后未离开流程导致历史丢失）
+  const prevAnalysisStatusRef = useRef<Record<number, AnalysisStatus>>(analysisStatus);
+  useEffect(() => {
+    const prev = prevAnalysisStatusRef.current;
+    prevAnalysisStatusRef.current = analysisStatus;
+    // 里程碑步骤：JD解析/诊断/匹配/追问/优化/终稿 完成时各保存一次（同轮同标题会 60s 内合并覆盖，最终留一条完整记录）
+    const milestones = [2, 3, 4, 5, 6, 7, 8] as const;
+    const justCompleted = milestones.some(
+      (s) => analysisStatus[s] === 'done' && prev[s] !== 'done'
+    );
+    if (justCompleted) {
+      useAppStore.getState().saveAnalysisToHistory();
+    }
+  }, [analysisStatus]);
+
+  /**
+   * 刷新续跑：持久化快照里状态停在 loading 的步骤，就是刷新前正在跑、被浏览器掐断的那一步。
+   * 恢复后它已被清回 idle —— 若不处理，第 2 步会永远停在「未开始」，看起来像"分析内容不见了"。
+   * 这里只续跑「用户当时正停留的那一步」，避免回到首页时还偷偷发起付费请求。
+   */
+  const resumeHandledRef = useRef(false);
+  const [resumeNotice, setResumeNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (resumeHandledRef.current) return;
+    resumeHandledRef.current = true;
+    const s = useAppStore.getState();
+    const interrupted = s.interruptedSteps;
+    if (interrupted.length === 0) return;
+    s.clearInterruptedSteps();
+    const step = pickResumeStep({
+      interruptedSteps: interrupted,
+      currentStep: s.currentStep,
+      analysisStatus: s.analysisStatus,
+      jdContent: s.userInput.jdContent,
+      resumeContent: s.userInput.resumeContent,
+    });
+    if (step === null) return;
+    setAnalysisStatus(step, 'loading');
+    setResumeNotice(`上次第 ${step} 步的生成被页面刷新中断，已自动重新开始。`);
+  }, [setAnalysisStatus]);
 
   // Auto-chain analysis: 2 → 3 → 4 → 5 (no auto-navigation)
   useEffect(() => {
@@ -347,6 +393,8 @@ function App() {
       case -4: return <SettingsPage />;
       case -3: return <ApplicationsPage />;
       case -2: return <MockInterviewPage />;
+      case -6: return <InterviewReviewPage />;
+      case -7: return <PromptAdminPage />;
       case -1: return <ResumeLibraryPage />;
       case 0: {
         // 全新访客（未登录/无历史/未进入过）→ 产品落地页；否则 → 分析工作台
@@ -373,6 +421,35 @@ function App() {
   return (
     <MainLayout bare={isBarePage}>
       {renderPage()}
+
+      {(resumeNotice || storageError) && (
+        <div className="max-w-6xl mx-auto px-8 mt-6 space-y-2">
+          {resumeNotice && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              <span className="flex-1">{resumeNotice}</span>
+              <button
+                type="button"
+                className="shrink-0 text-amber-600 hover:text-amber-800 dark:text-amber-300"
+                onClick={() => setResumeNotice(null)}
+              >
+                知道了
+              </button>
+            </div>
+          )}
+          {storageError && (
+            <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+              <span className="flex-1">{storageError}</span>
+              <button
+                type="button"
+                className="shrink-0 rounded border border-red-300 px-2 py-0.5 hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900/40"
+                onClick={() => freeUpStorage()}
+              >
+                清理旧记录
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Step footer with next button */}
       {isAnalysisStep && !isLastStep && (

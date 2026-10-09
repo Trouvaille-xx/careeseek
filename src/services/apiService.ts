@@ -2,8 +2,42 @@ import { useAppStore } from '@/stores/useAppStore';
 import { getProxyBase } from '@/stores/useAppStore';
 import { stripThinkTags } from '@/utils/text';
 
-const API_TIMEOUT_MS = 90000;
+/**
+ * 单次请求的网络超时。
+ * 必须大于后端代理的上游超时（server/src/proxy.ts 的 PROXY_TIMEOUT_MS，默认 240s），
+ * 否则额度放大后请求会在代理返回结果前先被前端自己掐断。
+ */
+const API_TIMEOUT_MS = 250000;
 const MAX_ATTEMPTS = 2;
+/**
+ * 默认输出上限。长 JSON 步骤（第 6/7 步）要输出 6-8 条长文本对照，
+ * 且推理 token（实测单次 2500+）也计入 completion —— 原来的 4096 必然被截断。
+ * 实测生成速度约 200 token/秒，16384 约需 80 秒；模型侧上限为 384K，远未触顶。
+ */
+const DEFAULT_MAX_TOKENS = 16384;
+/** 重试时的输出上限：首次被截断时放大再试一次 */
+const RETRY_MAX_TOKENS = 32768;
+/** 上游明确拒绝该 max_tokens 时的退守值（不同厂商对上限的判定不同） */
+const FALLBACK_MAX_TOKENS = 16384;
+
+/**
+ * 判断上游是否因 max_tokens 过大而拒绝请求。
+ * 各厂商措辞不一：max_tokens / maximum output / completion tokens / too large 等。
+ */
+function isMaxTokensRejection(status: number, body: string): boolean {
+  if (status !== 400 && status !== 422) return false;
+  return /max_?tokens?|max(imum)?\s*(output|completion)|too\s+large|output\s+limit|exceed/i.test(body);
+}
+
+/**
+ * 云端积分（托管）模式的默认模型。
+ * 必须与上游可用模型名、以及 server/src/pricing.ts 的 MODEL_PRICING 键保持一致：
+ * 曾经硬编码为 MiniMax-M3，而部署上游（OpenCode Go）只提供 deepseek-*，
+ * 导致托管模式每次请求都被上游拒绝（401 Model is not supported）。
+ * 部署时可用 VITE_HOSTED_MODEL 覆盖。
+ */
+const HOSTED_MODEL =
+  (import.meta.env.VITE_HOSTED_MODEL as string | undefined) || 'deepseek-v4-flash';
 
 /** 配额超限错误（402）——全局升级引导用 */
 export class QuotaExceededError extends Error {
@@ -39,7 +73,7 @@ function resolveEndpoint(): { url: string; headers: Record<string, string>; mode
     return {
       url: `${getProxyBase()}/chat/completions`,
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${auth.token}` },
-      model: 'MiniMax-M3',
+      model: HOSTED_MODEL,
     };
   }
   if (!apiSettings.apiKey) {
@@ -94,7 +128,7 @@ async function chatCompletion(
       model,
       messages,
       temperature: extra.temperature ?? 0.3,
-      max_tokens: extra.max_tokens ?? 4096,
+      max_tokens: extra.max_tokens ?? DEFAULT_MAX_TOKENS,
       ...(extra.stream ? { stream: true } : {}),
     }),
   });
@@ -179,6 +213,53 @@ export function stripThink(text: string): string {
     .trim();
 }
 
+/**
+ * 从被截断的 JSON 数组中抢救出「已经写完整」的对象，丢弃最后那个不完整的。
+ * 用于第 6/7 步这类长数组输出被输出上限截断的场景，避免整步失败。
+ */
+function salvageArrayObjects(text: string): string | null {
+  const start = text.indexOf('[');
+  if (start < 0) return null;
+  const items: string[] = [];
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let itemStart = -1;
+  for (let i = start + 1; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') {
+      if (depth === 0) itemStart = i;
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0 && itemStart >= 0) {
+        items.push(text.slice(itemStart, i + 1));
+        itemStart = -1;
+      }
+    }
+  }
+  if (items.length === 0) return null;
+  return `[${items.join(',')}]`;
+}
+
+/**
+ * 模型有时会把数组包一层对象（如 {"optimizationItems": [...]}），而调用方期待裸数组。
+ * 仅当对象只有一个属性且该属性是数组时才拆包，避免误伤正常的多字段对象输出。
+ */
+export function unwrapSingleArrayProperty(value: unknown): unknown {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return value;
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length === 1 && Array.isArray(entries[0][1])) return entries[0][1];
+  return value;
+}
+
 export function extractJSON(text: string): string {
   // 先剥掉思维链标签（<think>...</think> / ```think ... ```），它们不属于 JSON
   const cleaned = stripCodeFences(stripThinkTags(text));
@@ -186,11 +267,53 @@ export function extractJSON(text: string): string {
     JSON.parse(cleaned);
     return cleaned;
   } catch {
+    // 顶层是数组（匹配表/追问/优化等步骤）→ 数组整体优先，避免被内部的 { } 误导
+    const trimmed = cleaned.trim();
+    if (trimmed.startsWith('[')) {
+      const lastBracket = trimmed.lastIndexOf(']');
+      if (lastBracket > 0) {
+        const span = trimmed.slice(0, lastBracket + 1);
+        try {
+          JSON.parse(span);
+          return span;
+        } catch {
+          /* 数组自身不完整，继续尝试抢救 */
+        }
+      }
+      const salvaged = salvageArrayObjects(trimmed);
+      if (salvaged) return salvaged;
+    }
     // 优先取最后一个 { 到文本末尾（JSON 通常在结尾，避免误取前置 think 内容里的花括号）
     const tailMatch = cleaned.match(/\{[\s\S]*\}$/);
-    if (tailMatch) return tailMatch[0];
+    if (tailMatch) {
+      try {
+        JSON.parse(tailMatch[0]);
+        return tailMatch[0];
+      } catch {
+        /* 继续尝试更宽的匹配 */
+      }
+    }
+    const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      try {
+        JSON.parse(arrayMatch[0]);
+        return arrayMatch[0];
+      } catch {
+        /* 继续 */
+      }
+    }
     const match = cleaned.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-    if (match) return match[0];
+    if (match) {
+      try {
+        JSON.parse(match[0]);
+        return match[0];
+      } catch {
+        /* 继续兜底 */
+      }
+    }
+    // 最后兜底：文本里嵌着被截断的数组（含对象包裹数组的情况）→ 抢救已完整的元素
+    const salvagedAny = salvageArrayObjects(cleaned);
+    if (salvagedAny) return salvagedAny;
     throw new Error(`无法解析 LLM 响应为 JSON: ${cleaned.slice(0, 200)}`);
   }
 }
@@ -204,24 +327,46 @@ export async function callLLMWithJSON<T>(systemPrompt: string, userPrompt: strin
     { role: 'user', content: userPrompt },
   ];
 
+  // 上游若拒绝当前上限，用它退守到更保守的值（而不是整步失败）
+  let maxTokensOverride: number | undefined;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const maxTokens =
+      maxTokensOverride ?? (attempt === 1 ? DEFAULT_MAX_TOKENS : RETRY_MAX_TOKENS);
     try {
-      const res = await chatCompletion(messages);
+      // 首次用默认上限；重试时放大输出上限，规避长 JSON 步骤被截断
+      const res = await chatCompletion(messages, { max_tokens: maxTokens });
       if (!res.ok) {
         const err = await res.text().catch(() => res.statusText);
         const error = new Error(`API 错误 (${res.status}): ${err.slice(0, 200)}`);
+        if (isMaxTokensRejection(res.status, err) && maxTokens > FALLBACK_MAX_TOKENS) {
+          console.warn(
+            `[careeseek] 上游拒绝 max_tokens=${maxTokens}，退守 ${FALLBACK_MAX_TOKENS} 重试`
+          );
+          maxTokensOverride = FALLBACK_MAX_TOKENS;
+          continue;
+        }
         if (isRetryableError(error, res.status) && attempt < MAX_ATTEMPTS) {
           continue;
         }
         throw error;
       }
       const data = await res.json();
-      const content: string = data.choices?.[0]?.message?.content || '';
+      const choice = data.choices?.[0];
+      const content: string = choice?.message?.content || '';
+      const finishReason: string | undefined = choice?.finish_reason;
       try {
-        return JSON.parse(extractJSON(content)) as T;
+        return unwrapSingleArrayProperty(JSON.parse(extractJSON(content))) as T;
       } catch {
-        if (attempt < MAX_ATTEMPTS) continue;
-        throw new Error(`无法解析 LLM 响应为 JSON: ${content.slice(0, 200)}`);
+        if (attempt < MAX_ATTEMPTS) {
+          console.warn(
+            `[careeseek] JSON 解析失败（finish_reason=${finishReason ?? '未知'}），提高输出上限后重试`
+          );
+          continue;
+        }
+        const hint = finishReason === 'length'
+          ? '（模型输出被截断，已达到输出上限；请减少条目数量或缩短输入）'
+          : '';
+        throw new Error(`无法解析 LLM 响应为 JSON${hint}: ${content.slice(0, 200)}`);
       }
     } catch (e) {
       if (isRetryableError(e as Error) && attempt < MAX_ATTEMPTS) {

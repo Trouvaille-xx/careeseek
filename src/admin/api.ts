@@ -3,8 +3,19 @@
 const ADMIN_TOKEN_KEY = 'careeseek-admin-token';
 const BASE = '/v1';
 
+/**
+ * 主应用内嵌使用时的 token 覆盖。
+ * 管理后台独立 bundle 用 careeseek-admin-token；主应用里用户已登录，直接复用会话 token
+ * （后端 getPromptAdmin 会校验 role + 邮箱白名单，因此复用不会绕过权限）。
+ */
+let tokenOverride: string | null = null;
+
+export function setAdminApiTokenOverride(token: string | null): void {
+  tokenOverride = token;
+}
+
 export function getAdminToken(): string {
-  return localStorage.getItem(ADMIN_TOKEN_KEY) ?? '';
+  return tokenOverride ?? localStorage.getItem(ADMIN_TOKEN_KEY) ?? '';
 }
 
 export function setAdminToken(token: string): void {

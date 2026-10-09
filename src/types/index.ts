@@ -1,4 +1,4 @@
-﻿// ============ User Input ============
+// ============ User Input ============
 export interface UserInput {
   targetRole: string;
   industry: string;
@@ -87,6 +87,27 @@ export interface FinalResume {
   raw: string;
 }
 
+// ============ Cover Letter & Bilingual Resume ============
+/** AI 生成的求职信 */
+export interface CoverLetter {
+  /** 求职信正文（分段，\n 分隔） */
+  body: string;
+  /** 主题行 */
+  subject?: string;
+  /** 生成时间 */
+  createdAt: number;
+}
+
+/** AI 生成的双语简历（中英对照） */
+export interface BilingualResume {
+  /** 英文简历文本（与 finalResume sections 对应的英文版） */
+  english: string;
+  /** 中文原文 */
+  chinese: string;
+  /** 生成时间 */
+  createdAt: number;
+}
+
 // ============ Interview Prep ============
 export interface InterviewQuestion {
   question: string;
@@ -159,6 +180,8 @@ export interface AuthUser {
   id: string;
   email: string;
   plan: PlanId;
+  /** 服务端返回的角色（'admin' 可进入提示词维护等管理入口）；旧数据可能没有该字段 */
+  role?: string;
 }
 
 export interface QuotaInfo {
@@ -376,6 +399,84 @@ export interface InterviewSession {
   completed: boolean;
   report?: InterviewReport;
   createdAt: number;
+}
+
+// ============ Real Interview Review (面试复盘) ============
+/** 语音转文字模式 */
+export type AsrMode = 'server' | 'browser' | 'text' | 'aws';
+
+/** 真实面试复盘状态：录音 → 转写 → 分析 */
+export type RealInterviewStage = 'draft' | 'transcribing' | 'transcribed' | 'analyzing' | 'done' | 'error';
+
+/** 一次真实面试记录（复盘对象） */
+export interface RealInterview {
+  id: string;
+  /** 面试企业 */
+  company: string;
+  /** 面试岗位 */
+  position: string;
+  /** 面试时间（ISO） */
+  interviewTime: string;
+  /** 面试形式：电话/视频/现场/笔试等 */
+  format?: string;
+  /** 面试轮次：一面/二面/HR面/终面等 */
+  round?: string;
+  /** 面试官数量/角色描述 */
+  interviewers?: string;
+  /** 备注（面试结果、心态等） */
+  note?: string;
+  /** 录音文件名（用户上传的音频） */
+  audioFileName?: string;
+  /** 转写文本（ASR 结果或用户粘贴） */
+  transcript: string;
+  /** 转写使用的模式 */
+  asrMode?: AsrMode;
+  /** 转写/分析进度状态 */
+  stage: RealInterviewStage;
+  /** AI 复盘分析结果 */
+  analysis?: InterviewReviewReport;
+  /** 关联的本机 AI 面试 session id */
+  linkedSessionId?: string;
+  /** 关联的简历库快照（选择本地简历时深拷贝） */
+  linkedResume?: ResumeLibrary;
+  /** 关联的本地 AI 简历分析 id（analysisHistory 条目） */
+  linkedAnalysisId?: string;
+  /** 创建时间 */
+  createdAt: number;
+  /** 更新时间 */
+  updatedAt: number;
+}
+
+/** 真实面试复盘分析报告 */
+export interface InterviewReviewReport {
+  /** 总体评分（0-100） */
+  overallScore: number;
+  /** 面试对话逐题拆解 */
+  qaBreakdown: InterviewReviewQA[];
+  /** 表现好的地方 */
+  strengths: string[];
+  /** 待改进的地方 */
+  improvements: string[];
+  /** 简历/回答与岗位匹配度点评 */
+  matchAnalysis: string;
+  /** 下一次面试行动建议 */
+  nextSteps: string[];
+  /** 总结 */
+  summary: string;
+}
+
+/** 复盘中的一轮问答 */
+export interface InterviewReviewQA {
+  /** 面试官问题 */
+  question: string;
+  /** 候选人回答摘要 */
+  answer: string;
+  /** 该回答评分（0-100） */
+  score: number;
+  /** 点评 */
+  comment: string;
+  /** 更好的回答建议（STAR/量化等） */
+  betterAnswer?: string;
 }
 
 // ============ Job Applications (E2) ============

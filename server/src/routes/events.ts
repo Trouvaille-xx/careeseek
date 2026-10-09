@@ -22,6 +22,7 @@ const ENUM_PROPS: Record<string, Set<string>> = {
   plan: new Set(['free', 'pro', 'power']),
   is_first: new Set(['yes', 'no']),
   template: new Set(['classic', 'modern', 'compact']),
+  asr_mode: new Set(['server', 'browser', 'text', 'aws']),
 };
 
 /** 事件名白名单 */
@@ -29,6 +30,8 @@ const EVENT_NAMES = new Set([
   'app_open', 'llm_error',
   'input_submit', 'analysis_step_started', 'analysis_step_completed', 'analysis_step_failed', 'analysis_completed',
   'interview_started', 'interview_completed', 'export_pdf', 'export_json', 'optimization_edited',
+  'cover_letter_generated', 'bilingual_generated', 'cover_letter_downloaded', 'bilingual_downloaded',
+  'real_interview_created', 'real_interview_analyzed',
   'application_created', 'application_status_changed', 'resume_draft_saved',
   'paywall_shown', 'upgrade_click', 'checkout_started', 'plan_changed',
 ]);

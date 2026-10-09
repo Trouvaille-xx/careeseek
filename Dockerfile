@@ -4,7 +4,10 @@ WORKDIR /app
 # npm 用 npmmirror（中国大陆加速）
 RUN npm config set registry https://registry.npmmirror.com
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# --ignore-scripts：@huggingface/transformers 会带入 onnxruntime-node，其 postinstall 需联网
+# 下载原生二进制（国内服务器返回 302 导致 npm ci 失败）。前端只用 WASM 后端（构建产物是
+# transformers.web + ort-wasm-*.wasm），原生模块根本用不到，故跳过安装脚本即可。
+RUN npm ci --no-audit --no-fund --ignore-scripts
 COPY . .
 RUN npm run build
 
@@ -22,7 +25,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 make g+
 # npm 用 npmmirror（中国大陆加速）
 RUN npm config set registry https://registry.npmmirror.com
 COPY server/package.json server/package-lock.json ./server/
-RUN cd server && npm ci --no-audit --no-fund
+# ONNXRUNTIME_NODE_INSTALL=skip：onnxruntime-node 的 postinstall 在 linux/x64 上只下载 CUDA 12
+# 的 GPU 库（NuGet 源在国内 302 失败）。CPU 推理所需的 libonnxruntime.so 已随包内置，
+# 本机无 GPU 用不到 CUDA，跳过即可（不能用 --ignore-scripts，否则 better-sqlite3 编不出原生模块）。
+RUN cd server && ONNXRUNTIME_NODE_INSTALL=skip npm ci --no-audit --no-fund
 COPY server ./server
 RUN cd server && npm run build
 

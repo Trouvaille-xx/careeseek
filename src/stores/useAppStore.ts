@@ -1,5 +1,6 @@
-﻿import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import type { StateStorage } from 'zustand/middleware';
 import {
   UserInput,
   JDAnalysis,
@@ -25,6 +26,7 @@ import {
   InterviewSession,
   InterviewMessage,
   InterviewReport,
+  RealInterview,
   AnalysisHistoryEntry,
   JobApplication,
   ApplicationEvent,
@@ -64,6 +66,8 @@ interface AppStore {
   interviewSessions: InterviewSession[];
   currentInterviewId: string | null;
   interviewLoading: boolean;
+  /** 真实面试复盘记录 */
+  realInterviews: RealInterview[];
   analysisHistory: AnalysisHistoryEntry[];
   resumeAnalysisId: string | null;
   jdStreamText: string;
@@ -135,6 +139,10 @@ interface AppStore {
   completeInterview: (report: InterviewReport) => void;
   setInterviewLoading: (v: boolean) => void;
   resetCurrentInterview: () => void;
+  /** 新增/更新真实面试复盘记录 */
+  addRealInterview: (interview: RealInterview) => void;
+  updateRealInterview: (id: string, patch: Partial<RealInterview>) => void;
+  deleteRealInterview: (id: string) => void;
   saveAnalysisToHistory: () => void;
   loadAnalysisFromHistory: (id: string) => void;
   deleteAnalysisHistory: (id: string) => void;
@@ -189,6 +197,16 @@ interface AppStore {
   plans: PlanInfo[];
   quotaError: { used: number; limit: number; plan: string } | null;
   setQuotaError: (q: { used: number; limit: number; plan: string } | null) => void;
+  /**
+   * 刷新时被中断的步骤（持久化时状态停在 loading，说明请求被刷新掐断）。
+   * 由恢复流程计算，仅本次加载有效，不参与持久化。
+   */
+  interruptedSteps: number[];
+  clearInterruptedSteps: () => void;
+  /** 本地存储写入失败（配额已满）：null 表示正常 */
+  storageError: string | null;
+  /** 清理旧历史/面试记录，腾出 localStorage 空间 */
+  freeUpStorage: () => void;
   /** 设置页当前 tab（账户/AI/偏好/数据） */
   settingsTab: string;
   setSettingsTab: (tab: string) => void;
@@ -252,6 +270,7 @@ const BUSINESS_KEYS = [
   'uploadedResume',
   'resumeLibrary',
   'interviewSessions',
+  'realInterviews',
   'analysisHistory',
   'applications',
   'resumeBuilder',
@@ -303,6 +322,79 @@ function clearStaleLoading(statuses: Record<number, AnalysisStatus>): Record<num
   }
   return out;
 }
+
+/**
+ * 恢复时找出「被刷新打断」的步骤。
+ * 持久化快照里状态是 loading，说明刷新前那一步正在跑、而请求已被页面刷新掐断；
+ * clearStaleLoading 会把它们清回 idle，这里先把名单留下，交给 App 决定是否自动续跑。
+ */
+export function findInterruptedSteps(raw: Record<string, unknown> | undefined): number[] {
+  const statuses = (raw?.analysisStatus ?? {}) as Record<number, AnalysisStatus>;
+  return Object.entries(statuses)
+    .filter(([, v]) => v === 'loading')
+    .map(([k]) => Number(k))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= 8);
+}
+
+/**
+ * 刷新续跑的决策：只续跑「用户当时正停留的那一步」，且该步确实停在 idle、输入仍在。
+ * 抽成纯函数便于单测；App.tsx 只负责调用它并给出提示。
+ * 注意 error 状态不续跑，否则模型持续失败时会变成刷新即重试的死循环。
+ */
+export function pickResumeStep(opts: {
+  interruptedSteps: number[];
+  currentStep: number;
+  analysisStatus: Record<number, AnalysisStatus>;
+  jdContent: string;
+  resumeContent: string;
+}): number | null {
+  const { interruptedSteps, currentStep, analysisStatus, jdContent, resumeContent } = opts;
+  if (interruptedSteps.length === 0) return null;
+  if (currentStep < 2 || currentStep > 8) return null;
+  if (!interruptedSteps.includes(currentStep)) return null;
+  if (analysisStatus[currentStep] !== 'idle') return null;
+  if (!jdContent.trim() || !resumeContent.trim()) return null;
+  return currentStep;
+}
+
+/**
+ * localStorage 写入兜底。
+ * zustand 持久化默认在配额写满时只打 console（静默失败），用户会以为「已经自动保存」，
+ * 直到刷新才发现进度没了。这里把失败暴露成可见状态，让 UI 能提示并给出清理入口。
+ */
+const safeStorage: StateStorage = {
+  getItem: (name) => {
+    try {
+      return localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name, value) => {
+    try {
+      localStorage.setItem(name, value);
+      if (useAppStore.getState().storageError) useAppStore.setState({ storageError: null });
+    } catch (e) {
+      console.error('[careeseek] 本地存储写入失败（可能配额已满）', e);
+      try {
+        if (!useAppStore.getState().storageError) {
+          useAppStore.setState({
+            storageError: '本地存储空间已满，最新进度可能没有保存。点右侧清理旧记录后会自动重试。',
+          });
+        }
+      } catch {
+        /* 极端情况（store 尚未初始化）下不再递归报错 */
+      }
+    }
+  },
+  removeItem: (name) => {
+    try {
+      localStorage.removeItem(name);
+    } catch {
+      /* 忽略 */
+    }
+  },
+};
 
 /** 旧 WorkExperienceEntry（responsibilities 数组 / description 文本）→ 新结构（description 单个描述，与项目经历一致） */
 function normalizeWorkExperience(raw: unknown): WorkExperienceEntry[] {
@@ -422,6 +514,7 @@ function sanitizeBusiness(d: Record<string, unknown> | undefined): Record<string
     uploadedResume: src.uploadedResume ?? null,
     resumeLibrary: { ...defaultResumeLibrary(), ...((src.resumeLibrary as Partial<ResumeLibrary>) ?? {}), workExperience: normalizeWorkExperience((src.resumeLibrary as Record<string, unknown>)?.workExperience), customModules: normalizeCustomModules((src.resumeLibrary as Record<string, unknown>)?.customModules) },
     interviewSessions: src.interviewSessions ?? [],
+    realInterviews: src.realInterviews ?? [],
     analysisHistory: src.analysisHistory ?? [],
     applications: src.applications ?? [],
     resumeBuilder: normalizeBuilderDraft(src.resumeBuilder as Partial<ResumeBuilderDraft>),
@@ -457,6 +550,71 @@ function builderEdit(
   };
 }
 
+/**
+ * 从持久化快照恢复状态（zustand persist 的 merge）。
+ *
+ * ⚠️ 关键：zustand 不会把 `version` 传进 merge —— version 只用于内部判定是否 migrate，
+ * 进 merge 的已经是 `deserializedStorageValue.state`（纯 partialized 对象，没有 version 字段）。
+ * 曾误写成 `if (p.version === 2)` 判断格式，导致 v2 分支永远进不去、每次都走 v1 扁平格式兜底，
+ * 把 workspaceData 里的业务字段（简历库 / 历史分析 / 输入…）全当成缺省值丢掉 —— 表现就是
+ * 「刷新或重进后数据全空」。这里改为按结构判断：带 workspaceData 即 v2。
+ */
+export function mergePersistedState(persisted: unknown, current: AppStore): AppStore {
+  const p = persisted as
+    | {
+        currentWorkspace?: string;
+        workspaceList?: string[];
+        workspaceData?: Record<string, Record<string, unknown>>;
+        apiSettings?: ApiSettings;
+        sidebarExpanded?: boolean;
+        themeMode?: 'system' | 'light' | 'dark';
+        auth?: AuthState;
+      }
+    | undefined;
+  if (!p) return current;
+
+  const workspaceData =
+    p.workspaceData && typeof p.workspaceData === 'object' && !Array.isArray(p.workspaceData)
+      ? p.workspaceData
+      : null;
+
+  // v2：工作区分区格式（数据在 workspaceData 里，按 currentWorkspace 取回）
+  if (workspaceData) {
+    const name = typeof p.currentWorkspace === 'string' ? p.currentWorkspace : 'default';
+    const list = Array.isArray(p.workspaceList) && p.workspaceList.length > 0 ? p.workspaceList : ['default'];
+    // 取数据用的工作区必须和最终选中的一致：currentWorkspace 若不在列表里，
+    // 要回退到 default（否则会去读一个不存在的工作区，把数据读成空）。
+    const effective = list.includes(name) ? name : list.includes('default') ? 'default' : list[0];
+    return {
+      ...current,
+      ...sanitizeBusiness(workspaceData[effective]),
+      interruptedSteps: findInterruptedSteps(workspaceData[effective]),
+      currentWorkspace: effective,
+      workspaceList: list,
+      workspaceData,
+      apiSettings: { ...(p.apiSettings ?? current.apiSettings), aiMode: (p.apiSettings?.aiMode ?? current.apiSettings.aiMode ?? 'byok') },
+      sidebarExpanded: p.sidebarExpanded ?? current.sidebarExpanded,
+      themeMode: p.themeMode ?? 'system',
+      auth: p.auth ?? current.auth,
+    } as AppStore;
+  }
+
+  // v1 旧格式：业务字段平铺在顶层，全部归入 default 工作区
+  const legacy = p as unknown as Partial<AppStore>;
+  return {
+    ...current,
+    ...sanitizeBusiness(legacy as Record<string, unknown>),
+    interruptedSteps: findInterruptedSteps(legacy as Record<string, unknown>),
+    currentWorkspace: 'default',
+    workspaceList: ['default'],
+    workspaceData: { default: sanitizeBusiness(legacy as Record<string, unknown>) },
+    apiSettings: { ...(legacy.apiSettings ?? current.apiSettings), aiMode: (legacy.apiSettings?.aiMode ?? current.apiSettings.aiMode ?? 'byok') },
+    sidebarExpanded: legacy.sidebarExpanded ?? current.sidebarExpanded,
+    themeMode: legacy.themeMode ?? 'system',
+    auth: (legacy.auth as AuthState | undefined) ?? current.auth,
+  } as AppStore;
+}
+
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get): AppStore => ({
@@ -477,6 +635,7 @@ export const useAppStore = create<AppStore>()(
       interviewSessions: [],
       currentInterviewId: null,
       interviewLoading: false,
+      realInterviews: [],
       analysisHistory: [],
       resumeAnalysisId: null,
       jdStreamText: '',
@@ -504,6 +663,17 @@ export const useAppStore = create<AppStore>()(
       plans: [],
       quotaError: null,
       setQuotaError: (q) => set({ quotaError: q }),
+      interruptedSteps: [],
+      clearInterruptedSteps: () => set({ interruptedSteps: [] }),
+      storageError: null,
+      freeUpStorage: () => {
+        // 配额写满时给用户一个可操作的出口：裁剪旧记录后再触发一次写入，成功即自动清除提示
+        set((s) => ({
+          analysisHistory: s.analysisHistory.slice(0, 5),
+          interviewSessions: s.interviewSessions.slice(0, 3),
+          realInterviews: s.realInterviews.slice(0, 5),
+        }));
+      },
       settingsTab: 'account',
       setSettingsTab: (tab) => set({ settingsTab: tab }),
       landingSeen: false,
@@ -823,6 +993,18 @@ export const useAppStore = create<AppStore>()(
       })),
       setInterviewLoading: (v) => set({ interviewLoading: v }),
       resetCurrentInterview: () => set({ currentInterviewId: null }),
+
+      addRealInterview: (interview) => set((s) => ({ realInterviews: [interview, ...s.realInterviews] })),
+
+      updateRealInterview: (id, patch) =>
+        set((s) => ({
+          realInterviews: s.realInterviews.map((r) =>
+            r.id === id ? { ...r, ...patch, updatedAt: Date.now() } : r
+          ),
+        })),
+
+      deleteRealInterview: (id) =>
+        set((s) => ({ realInterviews: s.realInterviews.filter((r) => r.id !== id) })),
 
       saveAnalysisToHistory: () => set((s) => {
         if (!s.userInput.jdContent && !s.userInput.resumeContent) return {};
@@ -1222,6 +1404,7 @@ export const useAppStore = create<AppStore>()(
     {
       name: 'careeseek-storage',
       version: 2,
+      storage: createJSONStorage(() => safeStorage),
       migrate: (persistedState) => persistedState,
       partialize: (state) => ({
         currentWorkspace: state.currentWorkspace,
@@ -1235,50 +1418,7 @@ export const useAppStore = create<AppStore>()(
         themeMode: state.themeMode,
         auth: state.auth,
       }),
-      merge: (persisted, current) => {
-        const p = persisted as {
-          version?: number;
-          currentWorkspace?: string;
-          workspaceList?: string[];
-          workspaceData?: Record<string, Record<string, unknown>>;
-          apiSettings?: ApiSettings;
-          sidebarExpanded?: boolean;
-          themeMode?: 'system' | 'light' | 'dark';
-          auth?: AuthState;
-        } | undefined;
-        if (!p) return current;
-
-        // v2: 工作区分区格式
-        if (p.version === 2 && p.workspaceData) {
-          const name = typeof p.currentWorkspace === 'string' ? p.currentWorkspace : 'default';
-          const list = Array.isArray(p.workspaceList) && p.workspaceList.length > 0 ? p.workspaceList : ['default'];
-          return {
-            ...current,
-            ...sanitizeBusiness(p.workspaceData[name]),
-            currentWorkspace: list.includes(name) ? name : 'default',
-            workspaceList: list,
-            workspaceData: p.workspaceData,
-            apiSettings: { ...(p.apiSettings ?? current.apiSettings), aiMode: (p.apiSettings?.aiMode ?? current.apiSettings.aiMode ?? 'byok') },
-            sidebarExpanded: p.sidebarExpanded ?? current.sidebarExpanded,
-            themeMode: p.themeMode ?? 'system',
-            auth: p.auth ?? current.auth,
-          };
-        }
-
-        // v1 旧格式：全部归入 default 工作区
-        const legacy = p as unknown as Partial<AppStore>;
-        return {
-          ...current,
-          ...sanitizeBusiness(legacy as Record<string, unknown>),
-          currentWorkspace: 'default',
-          workspaceList: ['default'],
-          workspaceData: { default: sanitizeBusiness(legacy as Record<string, unknown>) },
-          apiSettings: { ...(legacy.apiSettings ?? current.apiSettings), aiMode: (legacy.apiSettings?.aiMode ?? current.apiSettings.aiMode ?? 'byok') },
-          sidebarExpanded: legacy.sidebarExpanded ?? current.sidebarExpanded,
-          themeMode: legacy.themeMode ?? 'system',
-          auth: (legacy.auth as AuthState | undefined) ?? current.auth,
-        };
-      },
+      merge: (persisted, current) => mergePersistedState(persisted, current),
     }
   )
 );

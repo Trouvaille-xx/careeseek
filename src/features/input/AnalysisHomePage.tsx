@@ -1,16 +1,60 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 
 export function AnalysisHomePage() {
-  const { analysisHistory, deleteAnalysisHistory, setResumeAnalysisId } = useAppStore();
+  const {
+    analysisHistory,
+    deleteAnalysisHistory,
+    setResumeAnalysisId,
+    userInput,
+    jdAnalysis,
+    diagnosis,
+    matchingRows,
+    optimizationItems,
+    finalResume,
+    interviewPrep,
+    analysisStatus,
+    setCurrentStep,
+  } = useAppStore();
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   const sortedHistory = [...analysisHistory].sort((a, b) => b.updatedAt - a.updatedAt);
   const visibleHistory = showAll ? sortedHistory : sortedHistory.slice(0, 3);
 
+  /**
+   * 「继续上次分析」入口。
+   * 进行中的分析不一定有历史条目（例如刷新时那一步还没跑完、或保存时机未覆盖），
+   * 而首页在没有历史条目时曾经完全没有入口回到它 —— 数据还在 localStorage，用户却只能看到空白首页。
+   */
+  const hasInput = Boolean(userInput.jdContent.trim() || userInput.resumeContent.trim());
+  const hasResult =
+    jdAnalysis !== null ||
+    diagnosis !== null ||
+    matchingRows.length > 0 ||
+    optimizationItems.length > 0 ||
+    finalResume !== null ||
+    interviewPrep !== null;
+  const showResumeCard = hasInput && hasResult;
+  const doneSteps = [2, 3, 4, 5, 6, 7, 8].filter((n) => analysisStatus[n] === 'done');
+  const furthestDone = doneSteps.length > 0 ? doneSteps[doneSteps.length - 1] : 1;
+  const STEP_NAMES: Record<number, string> = {
+    1: '输入 JD 与简历',
+    2: 'JD 深度解析',
+    3: '简历诊断',
+    4: '匹配度评分',
+    5: '面试追问',
+    6: '逐段优化',
+    7: '终稿生成',
+    8: '面试准备',
+  };
+
   const handleResume = (id: string) => {
     setResumeAnalysisId(id);
+  };
+
+  const handleContinue = () => {
+    setCurrentStep(furthestDone);
   };
 
   const handleNewAnalysis = () => {
@@ -39,6 +83,36 @@ export function AnalysisHomePage() {
         <h2 className="text-xl font-semibold text-slate-900 dark:text-neutral-100 mb-2">简历分析</h2>
         <p className="text-sm text-slate-500 dark:text-neutral-400">基于目标岗位 JD，诊断简历匹配度并生成优化方案</p>
       </div>
+
+      {/* Continue in-progress analysis（进行中的分析入口，弥补无历史条目时的死角） */}
+      {showResumeCard && (
+        <div className="mb-8">
+          <button
+            onClick={handleContinue}
+            className="w-full group bg-primary-50/60 dark:bg-neutral-800 rounded-2xl border border-primary-200 dark:border-neutral-700 hover:border-primary-400 hover:bg-primary-50 transition-all duration-200 p-6 text-left"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white dark:bg-neutral-700 flex items-center justify-center shrink-0">
+                <svg className="w-6 h-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-semibold text-slate-900 dark:text-neutral-100 mb-0.5">
+                  继续上次分析
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-neutral-400">
+                  已完成到「{STEP_NAMES[furthestDone] ?? '输入 JD 与简历'}」
+                  {userInput.targetRole ? ` · ${userInput.targetRole}` : ''}
+                </p>
+              </div>
+              <svg className="w-5 h-5 text-primary-400 group-hover:text-primary-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Create new analysis */}
       <div className="mb-8">

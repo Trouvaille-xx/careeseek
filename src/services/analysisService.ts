@@ -1,7 +1,7 @@
 import type {
   JDAnalysis, ResumeDiagnosis, MatchingRow, FollowUpQuestion,
   OptimizationItem, OptimizationStyle, FinalResume, InterviewPrep,
-  InterviewMessage,
+  InterviewMessage, CoverLetter, BilingualResume, InterviewReviewReport,
 } from '@/types';
 import { callLLMWithJSON, callLLM, callLLMForInterview, callLLMStream, extractJSON, type InterviewUsage } from './apiService';
 import {
@@ -15,10 +15,22 @@ import {
   FINAL_RESUME_SYSTEM, buildFinalResumePrompt,
   INTERVIEW_PREP_SYSTEM, buildInterviewPrepPrompt,
   buildInterviewSystemPrompt, buildInterviewFollowUpPrompt,
+  COVER_LETTER_SYSTEM, buildCoverLetterPrompt,
+  BILINGUAL_SYSTEM, buildBilingualPrompt,
+  REVIEW_SYSTEM, buildReviewPrompt,
 } from './prompts';
 import type { UserInput } from '@/types';
 
-async function fetchWithTimeout<T>(fn: () => Promise<T>, timeoutMs = 90000): Promise<T> {
+/**
+ * 重活步骤（长 JSON 输出，如第 6/7/8 步）的外层超时。
+ * 三层超时必须从外到内递减：外层 260s > apiService 请求超时 250s > 后端代理上游超时 240s，
+ * 否则外层会先掐断，日志里只看到"请求超时"而拿不到真实原因。
+ */
+const STEP_TIMEOUT_MS = 260000;
+/** 短输出 / 交互式调用（单条要点、求职信、双语简历、面试对话）的外层超时 */
+const CHAT_TIMEOUT_MS = 120000;
+
+async function fetchWithTimeout<T>(fn: () => Promise<T>, timeoutMs = STEP_TIMEOUT_MS): Promise<T> {
   const result = await Promise.race([
     fn(),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('请求超时，请检查 API 配置')), timeoutMs)),
@@ -72,7 +84,7 @@ JD_PARSE_SYSTEM(), buildJDPrompt(input.jdContent)
   async generateBullet(question: FollowUpQuestion): Promise<string> {
     return fetchWithTimeout(() => callLLM(
       BULLET_SYSTEM(), buildBulletPrompt(question.question, question.userAnswer)
-    ));
+    ), CHAT_TIMEOUT_MS);
   },
 
   async optimizeResume(
@@ -101,6 +113,44 @@ JD_PARSE_SYSTEM(), buildJDPrompt(input.jdContent)
     ));
   },
 
+  /**
+   * 生成求职信：基于最终简历 + 目标岗位 JD。
+   * 返回纯文本正文（非 JSON）。
+   */
+  async generateCoverLetter(jd: string, resumeText: string): Promise<string> {
+    const text = await fetchWithTimeout(() => callLLM(
+      COVER_LETTER_SYSTEM(), buildCoverLetterPrompt(jd, resumeText)
+    ), CHAT_TIMEOUT_MS);
+    return text.trim();
+  },
+
+  /**
+   * 生成双语简历：把最终简历翻译为英文。
+   * 返回纯文本英文版（非 JSON）。
+   */
+  async generateBilingualResume(resumeText: string): Promise<string> {
+    const text = await fetchWithTimeout(() => callLLM(
+      BILINGUAL_SYSTEM(), buildBilingualPrompt(resumeText)
+    ), CHAT_TIMEOUT_MS);
+    return text.trim();
+  },
+
+  /**
+   * 面试复盘：基于真实面试逐字稿 + 关联简历/分析，生成拆解分析报告。
+   */
+  async generateInterviewReview(opts: {
+    company: string;
+    position: string;
+    time: string;
+    transcript: string;
+    resume: string;
+    analysis: string;
+  }): Promise<InterviewReviewReport> {
+    return fetchWithTimeout(() => callLLMWithJSON<InterviewReviewReport>(
+      REVIEW_SYSTEM(), buildReviewPrompt(opts)
+    ));
+  },
+
   // ====== Mock Interview ======
   async startInterview(_input: UserInput, _jdAnalysis: JDAnalysis, _diagnosis: ResumeDiagnosis, _mode: string, persona?: string): Promise<{ persona: string; firstQuestion: string }> {
     // 开场白与第一问固定：先做候选人自我介绍（约定俗成），便于后续追问。
@@ -120,7 +170,7 @@ JD_PARSE_SYSTEM(), buildJDPrompt(input.jdContent)
       content: m.content,
     }));
 
-    const { response, usage } = await fetchWithTimeout(() => callLLMForInterview(systemPrompt, history));
+    const { response, usage } = await fetchWithTimeout(() => callLLMForInterview(systemPrompt, history), CHAT_TIMEOUT_MS);
 
     if (mode === 'learning') {
       const tipMatch = response.match(/\[TIP\]([\s\S]*?)(?=\[SCORE\]|$)/);

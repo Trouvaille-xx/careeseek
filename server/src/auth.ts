@@ -116,6 +116,21 @@ export function getAdminByToken(db: Database.Database, req: FastifyRequest): { i
 }
 
 /**
+ * 提示词维护鉴权：先要求 role=admin，再按 PROMPT_ADMIN_EMAILS（逗号分隔邮箱）收窄。
+ * 前端只负责隐藏入口，权限判断以后端为准；未配置该变量时退回「管理员即可」的旧行为。
+ */
+export function getPromptAdmin(db: Database.Database, req: FastifyRequest): { id: string; email: string; role: string } | null {
+  const admin = getAdminByToken(db, req);
+  if (!admin) return null;
+  const allow = (process.env.PROMPT_ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (allow.length > 0 && !allow.includes(admin.email.toLowerCase())) return null;
+  return admin;
+}
+
+/**
  * 初始化管理员：把 ADMIN_EMAILS（逗号分隔的邮箱）对应的用户提升为 admin。
  * 需在用户注册后调用（服务启动时 + 注册后），使首个注册用户能直接登录后台。
  */

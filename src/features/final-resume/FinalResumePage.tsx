@@ -7,7 +7,17 @@ import { PageLoading } from '@/components/ui/Spinner';
 import { ResumePreview } from '@/features/resume-builder/ResumeBuilderPage';
 import { exportJSON, exportBuilderPDF, exportBuilderDOCX } from '@/services/exportService';
 import { finalResumeToDraft } from '@/services/resumeDraftService';
+import { analysisService } from '@/services/analysisService';
 import { track } from '@/services/tracker';
+import type { FinalResume } from '@/types';
+
+/** 求职信 / 双语简历生成状态 */
+type ExtraGenState = { type: 'cover' | 'bilingual'; loading: boolean; error: string; result: string } | null;
+
+/** 把 finalResume 渲染为纯文本（供求职信/翻译提示词使用） */
+function resumeToText(resume: FinalResume): string {
+  return resume.sections.map((s) => `${s.title}\n${s.content}`).join('\n\n');
+}
 
 export function FinalResumePage() {
   const { finalResume, analysisStatus, userInput, resumeLibrary } = useAppStore();
@@ -17,6 +27,8 @@ export function FinalResumePage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [extraGen, setExtraGen] = useState<ExtraGenState>(null);
+  const [extraCopied, setExtraCopied] = useState(false);
 
   // 从简历原文提取个人信息行（姓名/联系方式）
   const firstLine = userInput.resumeContent.trim().split('\n')[0] || '';
@@ -98,6 +110,56 @@ export function FinalResumePage() {
     store.setCurrentStep(-1);
   }, [finalResume, personalInfoLine]);
 
+  // 生成求职信 / 双语简历
+  const handleExtraGen = useCallback(async (type: 'cover' | 'bilingual') => {
+    if (!finalResume) return;
+    setExtraGen({ type, loading: true, error: '', result: '' });
+    setExtraCopied(false);
+    try {
+      const resumeText = resumeToText(finalResume);
+      const result = type === 'cover'
+        ? await analysisService.generateCoverLetter(userInput.jdContent, resumeText)
+        : await analysisService.generateBilingualResume(resumeText);
+      setExtraGen({ type, loading: false, error: '', result });
+      track(type === 'cover' ? 'cover_letter_generated' : 'bilingual_generated', {});
+    } catch (e) {
+      setExtraGen({ type, loading: false, error: (e as Error).message || '生成失败，请重试', result: '' });
+    }
+  }, [finalResume, userInput.jdContent]);
+
+  const handleExtraCopy = useCallback(async () => {
+    if (!extraGen?.result) return;
+    try {
+      await navigator.clipboard.writeText(extraGen.result);
+      setExtraCopied(true);
+      setTimeout(() => setExtraCopied(false), 2000);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = extraGen.result;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setExtraCopied(true);
+      setTimeout(() => setExtraCopied(false), 2000);
+    }
+  }, [extraGen]);
+
+  const handleExtraDownload = useCallback(() => {
+    if (!extraGen?.result) return;
+    const filename = extraGen.type === 'cover' ? 'careeseek-cover-letter.txt' : 'careeseek-resume-en.txt';
+    const blob = new Blob([extraGen.result], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    track(extraGen.type === 'cover' ? 'cover_letter_downloaded' : 'bilingual_downloaded', {});
+  }, [extraGen]);
+
   if (status === 'loading') {
     return <PageLoading text="AI 正在生成最终简历..." />;
   }
@@ -147,6 +209,26 @@ export function FinalResumePage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
             </svg>
             模板排版
+          </Button>
+          <Button
+            variant="outline" size="sm"
+            onClick={() => void handleExtraGen('cover')}
+            disabled={extraGen?.loading}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+            求职信
+          </Button>
+          <Button
+            variant="outline" size="sm"
+            onClick={() => void handleExtraGen('bilingual')}
+            disabled={extraGen?.loading}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 21l5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 016-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 01-3.827-5.802" />
+            </svg>
+            双语简历
           </Button>
           <Button size="sm" onClick={() => { setExportOpen(true); setExportError(null); }}>
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -221,6 +303,50 @@ export function FinalResumePage() {
               取消
             </Button>
           </div>
+        </div>
+      </Dialog>
+
+      {/* 求职信 / 双语简历生成结果 Dialog */}
+      <Dialog
+        open={extraGen !== null}
+        onClose={() => setExtraGen(null)}
+        title={extraGen?.type === 'cover' ? '求职信' : '双语简历（英文版）'}
+      >
+        <div className="space-y-4">
+          {extraGen?.loading ? (
+            <div className="flex flex-col items-center justify-center py-8 text-slate-400 dark:text-neutral-500">
+              <span className="inline-block w-6 h-6 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-3" />
+              <p className="text-sm">{extraGen.type === 'cover' ? 'AI 正在生成求职信...' : 'AI 正在翻译为英文简历...'}</p>
+            </div>
+          ) : extraGen?.error ? (
+            <div className="text-xs px-3 py-2 rounded-lg bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+              {extraGen.error}
+            </div>
+          ) : extraGen?.result ? (
+            <>
+              <div className="max-h-96 overflow-y-auto rounded-xl bg-slate-50 dark:bg-neutral-900 border border-slate-200 dark:border-neutral-700 p-4">
+                <p className="text-sm text-slate-700 dark:text-neutral-200 whitespace-pre-wrap leading-relaxed">
+                  {extraGen.result}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 justify-end">
+                {extraCopied && (
+                  <span className="text-xs text-emerald-600 dark:text-emerald-300 animate-fade-in flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    已复制
+                  </span>
+                )}
+                <Button variant="outline" size="sm" onClick={() => void handleExtraCopy()}>
+                  复制文本
+                </Button>
+                <Button size="sm" onClick={handleExtraDownload}>
+                  下载 .txt
+                </Button>
+              </div>
+            </>
+          ) : null}
         </div>
       </Dialog>
     </div>

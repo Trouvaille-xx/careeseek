@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stripCodeFences, stripThink, extractJSON } from '@/services/apiService';
+import { stripCodeFences, stripThink, extractJSON, unwrapSingleArrayProperty } from '@/services/apiService';
 
 describe('stripCodeFences', () => {
   it('剥离完整 ```json 围栏', () => {
@@ -53,6 +53,36 @@ describe('extractJSON', () => {
     // 模拟 LLM 在 JSON 前自言自语的场景
     const raw = '<think>用户问了北京。</think>\n{"city":"北京"}';
     expect(JSON.parse(extractJSON(raw))).toEqual({ city: '北京' });
+  });
+
+  it('数组被输出上限截断时，抢救出已完整的元素', () => {
+    // 第 6 步（逐段优化）实测形态：最后一条只写了一半就断掉
+    const truncated = '[{"id":"o1","optimized":"甲"},{"id":"o2","optimized":"乙"},{"id":"o3","opti';
+    const parsed = JSON.parse(extractJSON(truncated));
+    expect(parsed).toHaveLength(2);
+    expect(parsed[1]).toEqual({ id: 'o2', optimized: '乙' });
+  });
+
+  it('数组元素内字符串含花括号/转义引号时也能正确抢救', () => {
+    const truncated = '[{"a":"含 { 花括号 } 与 \\" 引号"},{"b":"第二个"},{"c": 未完成';
+    expect(JSON.parse(extractJSON(truncated))).toHaveLength(2);
+  });
+});
+
+describe('unwrapSingleArrayProperty', () => {
+  it('单属性且为数组时拆包为数组', () => {
+    expect(unwrapSingleArrayProperty({ optimizationItems: [{ id: 'o1' }] })).toEqual([{ id: 'o1' }]);
+  });
+
+  it('多字段对象不拆包（避免误伤诊断/终稿等对象输出）', () => {
+    const obj = { overallScore: 79, dimensionScores: [{ name: '匹配度', score: 80 }] };
+    expect(unwrapSingleArrayProperty(obj)).toBe(obj);
+  });
+
+  it('已是数组或标量时原样返回', () => {
+    expect(unwrapSingleArrayProperty([1, 2])).toEqual([1, 2]);
+    expect(unwrapSingleArrayProperty(null)).toBeNull();
+    expect(unwrapSingleArrayProperty('x')).toBe('x');
   });
 });
 

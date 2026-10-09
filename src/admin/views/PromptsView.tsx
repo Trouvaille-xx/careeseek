@@ -89,6 +89,27 @@ const PROMPT_GROUPS: PromptGroup[] = [
       { key: 'interview_followup_prompt', label: '追问提示词' },
     ],
   },
+  {
+    id: 'cover-letter', label: '求职信',
+    keys: [
+      { key: 'cover_letter_system', label: '系统提示词' },
+      { key: 'cover_letter_prompt', label: '用户提示词' },
+    ],
+  },
+  {
+    id: 'bilingual', label: '双语简历',
+    keys: [
+      { key: 'bilingual_system', label: '系统提示词' },
+      { key: 'bilingual_prompt', label: '用户提示词' },
+    ],
+  },
+  {
+    id: 'review', label: '面试复盘',
+    keys: [
+      { key: 'review_system', label: '系统提示词' },
+      { key: 'review_prompt', label: '用户提示词' },
+    ],
+  },
 ];
 
 export function PromptsView({ onUnauthorized }: Props) {

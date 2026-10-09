@@ -4,7 +4,27 @@ import { computeCost } from './pricing.js';
 
 const UPSTREAM_BASE_URL = process.env.UPSTREAM_BASE_URL ?? 'https://api.deepseek.com/v1';
 const UPSTREAM_API_KEY = process.env.UPSTREAM_API_KEY ?? '';
-const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS ?? 95000);
+/**
+ * 上游请求超时。默认 240s：前端默认输出上限 16384 token、重试时 32768，
+ * 按实测约 200 token/秒，32768 需约 160 秒，必须留出余量。
+ * 注意必须小于前端 apiService 的 API_TIMEOUT_MS（250s），否则代理会先被前端掐断。
+ */
+const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS ?? 240000);
+/** 额外上游请求头：JSON 格式，如 {"x-opencode-session":"uuid"}（OpenCode Go 网关需要） */
+const UPSTREAM_EXTRA_HEADERS: Record<string, string> | undefined = (() => {
+  const raw = process.env.UPSTREAM_EXTRA_HEADERS;
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'string') out[k] = v;
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+  } catch {
+    return undefined;
+  }
+})();
 
 export class ProxyError extends Error {
   status: number;
@@ -78,6 +98,8 @@ export async function proxyChat(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${effectiveKey}`,
+      // OpenCode Go 网关强制要求 x-opencode-session（会话路由身份），缺失报 400 MissingSessionID
+      ...(UPSTREAM_EXTRA_HEADERS as Record<string, string> | undefined),
     },
     body: JSON.stringify(upstreamBody),
     signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
