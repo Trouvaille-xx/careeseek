@@ -4,7 +4,7 @@
 #   2. 服务器上 /opt/careeseek/.env.deploy 已配置（见 README）
 #   3. 执行:  powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
 param(
-  [string]$Server = "<YOUR_SERVER_IP>",
+  [string]$Server = "YOUR_SERVER_IP",
   [string]$User = "ubuntu",
   [string]$Key = "$env:USERPROFILE\.ssh\your_deploy_key",
   [string]$Project = (Split-Path $PSScriptRoot -Parent)

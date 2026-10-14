@@ -29,3 +29,8 @@ npm-debug.log*
 # 下载产物（deploy 排除，不入库）
 pako.min.js
 public/fonts/
+
+# 内部文档（商业计划 / 产品设计 / 规格稿，不纳入开源仓库，保留在本地）
+CEO-PLAN.md
+PRODUCT-DESIGN.md
+docs/

@@ -5,9 +5,10 @@
  * 真正的权限判断在后端（server/src/auth.ts 的 getPromptAdmin：role=admin + PROMPT_ADMIN_EMAILS）。
  * 前端隐藏入口 ≠ 有权限，直接调接口一样会被 401 拦下。
  *
- * 默认只放行一个管理员邮箱；需要多个时用 VITE_PROMPT_ADMIN_EMAILS（逗号分隔）覆盖。
+ * 默认不内置任何管理员邮箱；需要时用 VITE_PROMPT_ADMIN_EMAILS（逗号分隔）指定，
+ * 留空表示「不限制」（仅凭 role=admin 即可见）。
  */
-const RAW = (import.meta.env.VITE_PROMPT_ADMIN_EMAILS as string | undefined) ?? 'admin@example.com';
+const RAW = (import.meta.env.VITE_PROMPT_ADMIN_EMAILS as string | undefined) ?? '';
 
 export const PROMPT_ADMIN_EMAILS: string[] = RAW
   .split(',')
