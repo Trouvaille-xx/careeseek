@@ -1,10 +1,12 @@
 import { useAppStore, getProxyBase } from '@/stores/useAppStore';
 
 /**
- * 提示词覆盖存储（服务端管理后台可修改）。
- * - 启动时（App.tsx）调用 loadPromptOverrides() 拉取服务端覆盖，缓存到 localStorage。
- * - prompts.ts 的模板渲染函数每次调用时先查这里，无覆盖则用内置默认值。
- * - 未登录或请求失败时静默回退默认值（不阻塞主流程）。
+ * 提示词覆盖存储，分两层：
+ * - 官方覆盖（服务端管理后台可修改）：启动时（App.tsx）调用 loadPromptOverrides() 拉取，缓存到 localStorage。
+ * - 个人覆盖（本机用户在「设置 › 提示词管理」里自定义）：存在 useAppStore.promptOverrides，随应用一起持久化。
+ *
+ * prompts.ts 的模板渲染函数每次调用时先查这里。优先级：个人 > 官方 > 内置默认。
+ * 未登录或请求失败时静默回退默认值（不阻塞主流程）。
  */
 
 const STORAGE_KEY = 'careeseek-prompt-overrides';
@@ -29,8 +31,20 @@ export function loadOverridesFromCache(): void {
   }
 }
 
-export function getPromptOverride(key: string): string | undefined {
+/** 本机用户在设置里保存的个人覆盖（空串视作未覆盖）。 */
+export function getUserOverride(key: string): string | undefined {
+  const v = useAppStore.getState().promptOverrides?.[key];
+  return v && v.trim() ? v : undefined;
+}
+
+/** 官方（服务端管理后台）下发的覆盖。 */
+export function getServerOverride(key: string): string | undefined {
   return overrides[key];
+}
+
+/** 生效的覆盖值：个人优先，其次官方。无覆盖返回 undefined（由调用方回退内置默认）。 */
+export function getPromptOverride(key: string): string | undefined {
+  return getUserOverride(key) ?? getServerOverride(key);
 }
 
 export function hasPromptOverrides(): boolean {

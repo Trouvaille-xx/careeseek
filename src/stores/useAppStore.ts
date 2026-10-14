@@ -210,6 +210,14 @@ interface AppStore {
   /** 设置页当前 tab（账户/AI/偏好/数据） */
   settingsTab: string;
   setSettingsTab: (tab: string) => void;
+  /**
+   * 用户个人的提示词覆盖（key → 文本）。全局共享（不分工作区），随应用备份一起持久化。
+   * 空对象 / 缺省表示未覆盖：渲染时优先用官方（服务端）覆盖，否则回退内置默认。
+   */
+  promptOverrides: Record<string, string>;
+  setPromptOverride: (key: string, content: string) => void;
+  clearPromptOverride: (key: string) => void;
+  clearAllPromptOverrides: () => void;
   /** 是否已进入过工具（进入后"简历分析"菜单回工作台而非落地页） */
   landingSeen: boolean;
   setLandingSeen: (v: boolean) => void;
@@ -569,6 +577,7 @@ export function mergePersistedState(persisted: unknown, current: AppStore): AppS
         sidebarExpanded?: boolean;
         themeMode?: 'system' | 'light' | 'dark';
         auth?: AuthState;
+        promptOverrides?: Record<string, string>;
       }
     | undefined;
   if (!p) return current;
@@ -596,6 +605,7 @@ export function mergePersistedState(persisted: unknown, current: AppStore): AppS
       sidebarExpanded: p.sidebarExpanded ?? current.sidebarExpanded,
       themeMode: p.themeMode ?? 'system',
       auth: p.auth ?? current.auth,
+      promptOverrides: p.promptOverrides ?? current.promptOverrides,
     } as AppStore;
   }
 
@@ -612,6 +622,7 @@ export function mergePersistedState(persisted: unknown, current: AppStore): AppS
     sidebarExpanded: legacy.sidebarExpanded ?? current.sidebarExpanded,
     themeMode: legacy.themeMode ?? 'system',
     auth: (legacy.auth as AuthState | undefined) ?? current.auth,
+    promptOverrides: (legacy.promptOverrides as Record<string, string> | undefined) ?? current.promptOverrides,
   } as AppStore;
 }
 
@@ -676,6 +687,17 @@ export const useAppStore = create<AppStore>()(
       },
       settingsTab: 'account',
       setSettingsTab: (tab) => set({ settingsTab: tab }),
+      promptOverrides: {},
+      setPromptOverride: (key, content) =>
+        set((s) => ({ promptOverrides: { ...s.promptOverrides, [key]: content } })),
+      clearPromptOverride: (key) =>
+        set((s) => {
+          if (!(key in s.promptOverrides)) return {};
+          const next = { ...s.promptOverrides };
+          delete next[key];
+          return { promptOverrides: next };
+        }),
+      clearAllPromptOverrides: () => set({ promptOverrides: {} }),
       landingSeen: false,
       setLandingSeen: (v) => set({ landingSeen: v }),
 
@@ -1417,6 +1439,7 @@ export const useAppStore = create<AppStore>()(
         sidebarExpanded: state.sidebarExpanded,
         themeMode: state.themeMode,
         auth: state.auth,
+        promptOverrides: state.promptOverrides,
       }),
       merge: (persisted, current) => mergePersistedState(persisted, current),
     }

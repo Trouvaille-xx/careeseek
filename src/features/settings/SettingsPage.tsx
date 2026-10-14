@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { PlansDialog } from '@/components/ui/PlansDialog';
 import { THEME_OPTIONS } from '@/utils/theme';
+import { PromptManager } from './PromptManager';
 import type { OptimizationStyle } from '@/types';
 
 const STORAGE_KEY = 'careeseek-storage';
@@ -26,7 +27,7 @@ const STYLE_META: { key: OptimizationStyle; label: string; desc: string }[] = [
   { key: 'tob-saas', label: '企业服务向', desc: '侧重 B 端业务价值表达' },
 ];
 
-type SettingsTab = 'account' | 'ai' | 'preferences' | 'data';
+type SettingsTab = 'account' | 'ai' | 'prompts' | 'preferences' | 'data';
 
 const TABS: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
   {
@@ -44,6 +45,15 @@ const TABS: { key: SettingsTab; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
+      </svg>
+    ),
+  },
+  {
+    key: 'prompts',
+    label: '提示词管理',
+    icon: (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
       </svg>
     ),
   },
@@ -212,7 +222,7 @@ export function SettingsPage() {
       </div>
 
       {/* Right detail */}
-      <div className="flex-1 max-w-2xl">
+      <div className={`flex-1 ${tab === 'prompts' ? 'max-w-3xl' : 'max-w-2xl'}`}>
         {feedback && (
           <div className={`mb-3 text-xs px-3 py-2 rounded-lg ${feedback.kind === 'ok' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
             {feedback.text}
@@ -477,6 +487,8 @@ export function SettingsPage() {
               </div>
             </section>
           )}
+
+          {tab === 'prompts' && <PromptManager />}
 
           {tab === 'preferences' && (
             <section className="space-y-4">
